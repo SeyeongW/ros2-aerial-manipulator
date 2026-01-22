@@ -39,4 +39,9 @@ ament_target_dependencies(omx_moveit_pick_node
 install(TARGETS omx_moveit_pick_node
   DESTINATION lib/${PROJECT_NAME})
 
+install(PROGRAMS
+  scripts/aruco_markers_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()
