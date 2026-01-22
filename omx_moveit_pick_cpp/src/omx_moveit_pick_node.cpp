@@ -10,6 +10,7 @@
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2/LinearMath/Quaternion.h"
 
 #include "aruco_markers_msgs/msg/marker_array.hpp"
 
@@ -46,6 +47,15 @@ public:
     offset_x_ = declare_parameter<double>("offset_x", 0.00);
     offset_y_ = declare_parameter<double>("offset_y", 0.00);
     offset_z_ = declare_parameter<double>("offset_z", 0.00);
+
+    // Place target (BASE frame)
+    do_place_ = declare_parameter<bool>("do_place", true);
+    place_x_ = declare_parameter<double>("place_x", 0.20);
+    place_y_ = declare_parameter<double>("place_y", 0.00);
+    place_z_ = declare_parameter<double>("place_z", 0.10);
+    place_roll_ = declare_parameter<double>("place_roll", 0.0);
+    place_pitch_ = declare_parameter<double>("place_pitch", 0.0);
+    place_yaw_ = declare_parameter<double>("place_yaw", 0.0);
 
     // Gripper action
     gripper_action_ = declare_parameter<std::string>("gripper_action", "/gripper_controller/gripper_cmd");
@@ -213,13 +223,63 @@ private:
 
       planAndExecute(lift);
 
-      RCLCPP_INFO(get_logger(), "Pick done.");
+      if (do_place_) {
+        geometry_msgs::msg::PoseStamped place_target = makePlacePose();
+        const double px = place_target.pose.position.x;
+        const double py = place_target.pose.position.y;
+
+        const double pr = std::sqrt(px*px + py*py);
+        const double pux = (pr > 1e-6) ? (px / pr) : 1.0;
+        const double puy = (pr > 1e-6) ? (py / pr) : 0.0;
+
+        geometry_msgs::msg::PoseStamped place_pre = place_target;
+        place_pre.pose.position.x = px - approach_dist_ * pux;
+        place_pre.pose.position.y = py - approach_dist_ * puy;
+
+        geometry_msgs::msg::PoseStamped place = place_target;
+        place.pose.position.x = place_pre.pose.position.x + grasp_advance_ * pux;
+        place.pose.position.y = place_pre.pose.position.y + grasp_advance_ * puy;
+
+        geometry_msgs::msg::PoseStamped retreat = place;
+        retreat.pose.position.z += lift_dist_;
+
+        RCLCPP_INFO(get_logger(), "Place start: pre->place->open->retreat");
+
+        if (!planAndExecute(place_pre)) { busy_ = false; return; }
+        if (!planAndExecute(place))     { busy_ = false; return; }
+
+        sendGripper(grip_open_);
+        rclcpp::sleep_for(500ms);
+
+        planAndExecute(retreat);
+
+        RCLCPP_INFO(get_logger(), "Place done.");
+      } else {
+        RCLCPP_INFO(get_logger(), "Pick done.");
+      }
 
     } catch (const std::exception &e) {
       RCLCPP_WARN(get_logger(), "Error: %s", e.what());
     }
 
     busy_ = false;
+  }
+
+  geometry_msgs::msg::PoseStamped makePlacePose() const
+  {
+    geometry_msgs::msg::PoseStamped pose;
+    pose.header.frame_id = base_frame_;
+    pose.header.stamp = this->now();
+    pose.pose.position.x = place_x_;
+    pose.pose.position.y = place_y_;
+    pose.pose.position.z = place_z_;
+    tf2::Quaternion q;
+    q.setRPY(place_roll_, place_pitch_, place_yaw_);
+    pose.pose.orientation.x = q.x();
+    pose.pose.orientation.y = q.y();
+    pose.pose.orientation.z = q.z();
+    pose.pose.orientation.w = q.w();
+    return pose;
   }
 
   std::atomic<bool> busy_{false};
@@ -231,6 +291,9 @@ private:
   std::string planning_group_, ee_link_;
   double approach_dist_, grasp_advance_, lift_dist_;
   double offset_x_, offset_y_, offset_z_;
+  bool do_place_{true};
+  double place_x_, place_y_, place_z_;
+  double place_roll_, place_pitch_, place_yaw_;
 
   std::string gripper_action_;
   double grip_open_, grip_close_, grip_effort_;
