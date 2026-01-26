@@ -1,323 +1,217 @@
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <string>
+#include <vector>
 #include <atomic>
-#include <chrono>
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
-
+#include "trajectory_msgs/msg/joint_trajectory.hpp"
+#include "trajectory_msgs/msg/joint_trajectory_point.hpp"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-#include "tf2/LinearMath/Quaternion.h"
-
 #include "aruco_markers_msgs/msg/marker_array.hpp"
 
-#include "rclcpp_action/rclcpp_action.hpp"
-#include "control_msgs/action/gripper_command.hpp"
-
-#include "moveit/move_group_interface/move_group_interface.h"
-
 using namespace std::chrono_literals;
-using GripperCommand = control_msgs::action::GripperCommand;
 
-class OmxMoveItPickNode : public rclcpp::Node {
+class DirectServoPicker : public rclcpp::Node {
 public:
-  OmxMoveItPickNode()
-  : Node("omx_moveit_pick_node"),
-    tf_buffer_(this->get_clock()),
-    tf_listener_(tf_buffer_)
-  {
-    // Frames / topics
+  DirectServoPicker() : Node("direct_servo_picker") {
+    // 파라미터
     base_frame_ = declare_parameter<std::string>("base_frame", "link1");
-    markers_topic_ = declare_parameter<std::string>("markers_topic", "/aruco/markers");
     target_id_ = static_cast<unsigned int>(declare_parameter<int>("target_id", 0));
+    
+    // 퍼블리셔
+    arm_pub_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(
+        "/arm_controller/joint_trajectory", 10);
+    gripper_pub_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(
+        "/gripper_controller/joint_trajectory", 10);
 
-    // MoveIt
-    planning_group_ = declare_parameter<std::string>("planning_group", "arm");
-    ee_link_ = declare_parameter<std::string>("ee_link", "end_effector_link");
+    // TF 리스너
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-    // Distances (m)
-    approach_dist_ = declare_parameter<double>("approach_dist", 0.10);
-    grasp_advance_ = declare_parameter<double>("grasp_advance", 0.06);
-    lift_dist_     = declare_parameter<double>("lift_dist", 0.08);
-
-    // Marker->grasp offset (m): tune these in BASE frame
-    offset_x_ = declare_parameter<double>("offset_x", 0.00);
-    offset_y_ = declare_parameter<double>("offset_y", 0.00);
-    offset_z_ = declare_parameter<double>("offset_z", 0.00);
-
-    // Place target (BASE frame)
-    do_place_ = declare_parameter<bool>("do_place", true);
-    place_x_ = declare_parameter<double>("place_x", 0.20);
-    place_y_ = declare_parameter<double>("place_y", 0.00);
-    place_z_ = declare_parameter<double>("place_z", 0.10);
-    place_roll_ = declare_parameter<double>("place_roll", 0.0);
-    place_pitch_ = declare_parameter<double>("place_pitch", 0.0);
-    place_yaw_ = declare_parameter<double>("place_yaw", 0.0);
-
-    // Gripper action
-    gripper_action_ = declare_parameter<std::string>("gripper_action", "/gripper_controller/gripper_cmd");
-    grip_open_  = declare_parameter<double>("grip_open", 0.010);
-    grip_close_ = declare_parameter<double>("grip_close", 0.000);
-    grip_effort_= declare_parameter<double>("grip_effort", 2.0);
-
-    // Gripper client
-    gripper_client_ = rclcpp_action::create_client<GripperCommand>(this, gripper_action_);
-
-    // Subscriber
+    // 마커 구독
     sub_ = create_subscription<aruco_markers_msgs::msg::MarkerArray>(
-      markers_topic_, 10, std::bind(&OmxMoveItPickNode::cbMarkers, this, std::placeholders::_1));
+        "/aruco/markers", 10, std::bind(&DirectServoPicker::cbMarkers, this, std::placeholders::_1));
 
-    // IMPORTANT: Do NOT construct MoveGroupInterface in constructor.
-    // Delay it until the node is fully managed by a shared_ptr.
-    init_timer_ = this->create_wall_timer(
-      200ms, std::bind(&OmxMoveItPickNode::initMoveIt, this));
+    // 스캔 타이머 (3.5초마다 실행 - 천천히 움직이기 위함)
+    scan_timer_ = create_wall_timer(3500ms, std::bind(&DirectServoPicker::scanRoutine, this));
+    last_detection_time_ = this->now();
 
-    RCLCPP_INFO(get_logger(),
-      "Started. markers=%s target_id=%u base=%s group=%s ee=%s",
-      markers_topic_.c_str(), target_id_, base_frame_.c_str(),
-      planning_group_.c_str(), ee_link_.c_str());
+    RCLCPP_INFO(get_logger(), "Direct Servo Picker Started (Wide Scan Mode)");
+
+    // 초기화: 그리퍼 열고 정면 하방 응시
+    sendGripperCommand(0.01);
+    sendArmCommand({0.0, -0.8, 0.3, 1.5}, 3.0); 
   }
 
 private:
-  void initMoveIt()
-  {
-    if (moveit_ready_) return;
+  void cbMarkers(const aruco_markers_msgs::msg::MarkerArray::SharedPtr msg) {
+    if (is_grasping_) return; 
 
-    try {
-      // Now shared_from_this() is SAFE because this is called after construction
-      auto node_ptr = this->shared_from_this();
-
-      move_group_ = std::make_unique<moveit::planning_interface::MoveGroupInterface>(
-        node_ptr, planning_group_);
-
-      move_group_->setEndEffectorLink(ee_link_);
-      move_group_->setPoseReferenceFrame(base_frame_);
-      move_group_->setPlanningTime(5.0);
-      move_group_->setNumPlanningAttempts(5);
-
-      moveit_ready_ = true;
-      RCLCPP_INFO(get_logger(), "MoveIt initialized (MoveGroupInterface ready).");
-
-      // Stop retry timer
-      init_timer_->cancel();
-    } catch (const std::exception &e) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
-        "MoveIt init failed (retrying): %s", e.what());
-    }
-  }
-
-  void sendGripper(double pos)
-  {
-    if (!gripper_client_->wait_for_action_server(500ms)) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "Gripper action server not available.");
-      return;
-    }
-    GripperCommand::Goal goal;
-    goal.command.position = pos;
-    goal.command.max_effort = grip_effort_;
-    gripper_client_->async_send_goal(goal);
-  }
-
-  bool planAndExecute(const geometry_msgs::msg::PoseStamped &pose)
-  {
-    if (!moveit_ready_ || !move_group_) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "MoveIt not ready yet.");
-      return false;
-    }
-
-    move_group_->setPoseTarget(pose, ee_link_);
-    moveit::planning_interface::MoveGroupInterface::Plan plan;
-
-    const bool ok = (move_group_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-    if (!ok) {
-      RCLCPP_WARN(get_logger(), "Planning failed.");
-      move_group_->clearPoseTargets();
-      return false;
-    }
-
-    const bool ex = (move_group_->execute(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-    move_group_->clearPoseTargets();
-
-    if (!ex) {
-      RCLCPP_WARN(get_logger(), "Execution failed.");
-    }
-    return ex;
-  }
-
-  bool markerToBasePose(const aruco_markers_msgs::msg::Marker &m, geometry_msgs::msg::PoseStamped &out_base)
-  {
-    // m.pose is PoseStamped (header.frame_id should be camera frame)
-    const auto &in = m.pose;
-
-    // Use latest available transform (TimePointZero) for robustness in sim clocks
-    const auto tf = tf_buffer_.lookupTransform(
-      base_frame_, in.header.frame_id, tf2::TimePointZero, tf2::durationFromSec(0.2));
-
-    tf2::doTransform(in, out_base, tf);
-    out_base.header.frame_id = base_frame_;
-
-    // Apply simple offsets in BASE frame (easy to tune)
-    out_base.pose.position.x += offset_x_;
-    out_base.pose.position.y += offset_y_;
-    out_base.pose.position.z += offset_z_;
-    return true;
-  }
-
-  void cbMarkers(const aruco_markers_msgs::msg::MarkerArray::SharedPtr msg)
-  {
-    // If MoveIt isn't ready, don't even start a pick
-    if (!moveit_ready_) {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "Waiting for MoveIt initialization...");
-      return;
-    }
-    if (busy_) return;
-
-    const aruco_markers_msgs::msg::Marker *chosen = nullptr;
+    // 1. 타겟 찾기
+    const aruco_markers_msgs::msg::Marker *target = nullptr;
     for (const auto &m : msg->markers) {
-      if (m.id == target_id_) { chosen = &m; break; }
+      if (m.id == target_id_) { target = &m; break; }
     }
-    if (!chosen) return;
+    
+    if (!target) return; 
 
-    busy_ = true;
+    // 타겟 발견!
+    last_detection_time_ = this->now();
+    scan_step_ = 0; 
 
+    // 2. 좌표 변환
+    geometry_msgs::msg::PoseStamped target_pose;
+    if (!getMarkerPose(*target, target_pose)) return;
+
+    double x = target_pose.pose.position.x;
+    double y = target_pose.pose.position.y;
+    double dist = std::sqrt(x*x + y*y);
+
+    // 3. 거리별 행동 (State Machine)
+    if (dist > 0.35 || dist < 0.12) {
+       trackTarget(x, y, dist);
+       return;
+    }
+
+    // 사정권 진입 (Sweet Spot: 0.15 ~ 0.28m) & 중앙 조준 완료 시 잡기
+    if (std::abs(y) < 0.03) {
+        executeGraspSequence(x, y);
+    } else {
+        trackTarget(x, y, dist);
+    }
+  }
+
+  void trackTarget(double x, double y, double dist) {
+    double j1 = std::atan2(y, x);
+    double j2, j3, j4;
+
+    if (dist < 0.15) { 
+        j2 = -0.1; j3 = -0.6; j4 = 1.6; 
+    } else if (dist < 0.22) {
+        j2 = 0.0; j3 = -0.2; j4 = 1.2;
+    } else {
+        j2 = 0.2; j3 = 0.1; j4 = 0.8;
+    }
+
+    // 추적은 0.5초로 약간 부드럽게
+    sendArmCommand({j1, j2, j3, j4}, 0.5);
+  }
+
+  void executeGraspSequence(double x, double y) {
+    is_grasping_ = true;
+    RCLCPP_INFO(get_logger(), "GRASP TRIGGERED! (Pos: %.2f, %.2f)", x, y);
+
+    double j1 = std::atan2(y, x);
+
+    // 접근
+    sendArmCommand({j1, 0.1, 0.1, 1.0}, 1.0);
+    rclcpp::sleep_for(1200ms);
+
+    // 잡기
+    sendGripperCommand(-0.01); 
+    rclcpp::sleep_for(1000ms);
+
+    // 들기
+    sendArmCommand({j1, -0.5, -0.3, 0.5}, 2.0);
+    rclcpp::sleep_for(2500ms);
+
+    // 복귀
+    sendArmCommand({0.0, -0.8, 0.3, 1.5}, 2.0);
+    rclcpp::sleep_for(2000ms);
+
+    // 놓기 (테스트용)
+    sendGripperCommand(0.01);
+    rclcpp::sleep_for(1000ms);
+
+    is_grasping_ = false;
+    RCLCPP_INFO(get_logger(), "Routine Finished. Scanning...");
+  }
+
+  // [수정됨] 상하좌우 광역 스캔 루틴
+  void scanRoutine() {
+    if (is_grasping_) return;
+    
+    // 마지막 발견 후 2초 지났으면 스캔 시작
+    auto duration = this->now() - last_detection_time_;
+    if (duration.seconds() < 2.0) return;
+
+    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 3000, "Scanning Wide Area...");
+
+    // 스캔 패턴 (J1:좌우, J2/J3/J4:상하)
+    std::vector<std::vector<double>> patterns = {
+        // 1. 아래쪽 훑기 (기존) - 발 밑 확인
+        { 0.0, -0.8,  0.3,  1.5},  // 중앙 아래
+        { 0.8, -0.8,  0.3,  1.5},  // 왼쪽 아래
+        {-0.8, -0.8,  0.3,  1.5},  // 오른쪽 아래
+        
+        // 2. [추가] 정면(전방) 훑기 - 고개를 듬
+        { 0.0,  0.0, -0.2,  1.0},  // 중앙 전방 (멀리 봄)
+        { 0.8,  0.0, -0.2,  1.0},  // 왼쪽 전방
+        {-0.8,  0.0, -0.2,  1.0}   // 오른쪽 전방
+    };
+
+    int idx = scan_step_ % patterns.size();
+    
+    // [속도 조절] 3.0초 동안 천천히 이동 (카메라 블러 방지)
+    sendArmCommand(patterns[idx], 3.0); 
+    scan_step_++;
+  }
+
+  bool getMarkerPose(const aruco_markers_msgs::msg::Marker &m, geometry_msgs::msg::PoseStamped &out) {
     try {
-      geometry_msgs::msg::PoseStamped target_base;
-      markerToBasePose(*chosen, target_base);
-
-      const double x = target_base.pose.position.x;
-      const double y = target_base.pose.position.y;
-      const double z = target_base.pose.position.z;
-
-      // Approach direction: from robot base to target (radial)
-      const double r = std::sqrt(x*x + y*y);
-      const double ux = (r > 1e-6) ? (x / r) : 1.0;
-      const double uy = (r > 1e-6) ? (y / r) : 0.0;
-
-      geometry_msgs::msg::PoseStamped pre = target_base;
-      pre.header.stamp = this->now();
-      pre.pose.position.x = x - approach_dist_ * ux;
-      pre.pose.position.y = y - approach_dist_ * uy;
-
-      geometry_msgs::msg::PoseStamped grasp = target_base;
-      grasp.header.stamp = this->now();
-      grasp.pose.position.x = pre.pose.position.x + grasp_advance_ * ux;
-      grasp.pose.position.y = pre.pose.position.y + grasp_advance_ * uy;
-
-      geometry_msgs::msg::PoseStamped lift = grasp;
-      lift.header.stamp = this->now();
-      lift.pose.position.z = z + lift_dist_;
-
-      RCLCPP_INFO(get_logger(), "Pick start: pre->grasp->lift");
-
-      sendGripper(grip_open_);
-      rclcpp::sleep_for(500ms);
-
-      if (!planAndExecute(pre))   { busy_ = false; return; }
-      if (!planAndExecute(grasp)) { busy_ = false; return; }
-
-      sendGripper(grip_close_);
-      rclcpp::sleep_for(700ms);
-
-      planAndExecute(lift);
-
-      if (do_place_) {
-        geometry_msgs::msg::PoseStamped place_target = makePlacePose();
-        const double px = place_target.pose.position.x;
-        const double py = place_target.pose.position.y;
-
-        const double pr = std::sqrt(px*px + py*py);
-        const double pux = (pr > 1e-6) ? (px / pr) : 1.0;
-        const double puy = (pr > 1e-6) ? (py / pr) : 0.0;
-
-        geometry_msgs::msg::PoseStamped place_pre = place_target;
-        place_pre.pose.position.x = px - approach_dist_ * pux;
-        place_pre.pose.position.y = py - approach_dist_ * puy;
-
-        geometry_msgs::msg::PoseStamped place = place_target;
-        place.pose.position.x = place_pre.pose.position.x + grasp_advance_ * pux;
-        place.pose.position.y = place_pre.pose.position.y + grasp_advance_ * puy;
-
-        geometry_msgs::msg::PoseStamped retreat = place;
-        retreat.pose.position.z += lift_dist_;
-
-        RCLCPP_INFO(get_logger(), "Place start: pre->place->open->retreat");
-
-        if (!planAndExecute(place_pre)) { busy_ = false; return; }
-        if (!planAndExecute(place))     { busy_ = false; return; }
-
-        sendGripper(grip_open_);
-        rclcpp::sleep_for(500ms);
-
-        planAndExecute(retreat);
-
-        RCLCPP_INFO(get_logger(), "Place done.");
-      } else {
-        RCLCPP_INFO(get_logger(), "Pick done.");
-      }
-
-    } catch (const std::exception &e) {
-      RCLCPP_WARN(get_logger(), "Error: %s", e.what());
+      geometry_msgs::msg::PoseStamped in;
+      in.header = m.header;
+      in.pose = m.pose.pose;
+      auto tf = tf_buffer_->lookupTransform(base_frame_, m.header.frame_id, tf2::TimePointZero);
+      tf2::doTransform(in, out, tf);
+      return true;
+    } catch (tf2::TransformException &ex) {
+      return false;
     }
-
-    busy_ = false;
   }
 
-  geometry_msgs::msg::PoseStamped makePlacePose() const
-  {
-    geometry_msgs::msg::PoseStamped pose;
-    pose.header.frame_id = base_frame_;
-    pose.header.stamp = this->now();
-    pose.pose.position.x = place_x_;
-    pose.pose.position.y = place_y_;
-    pose.pose.position.z = place_z_;
-    tf2::Quaternion q;
-    q.setRPY(place_roll_, place_pitch_, place_yaw_);
-    pose.pose.orientation.x = q.x();
-    pose.pose.orientation.y = q.y();
-    pose.pose.orientation.z = q.z();
-    pose.pose.orientation.w = q.w();
-    return pose;
+  void sendArmCommand(std::vector<double> positions, double duration) {
+    trajectory_msgs::msg::JointTrajectory msg;
+    msg.joint_names = {"joint1", "joint2", "joint3", "joint4"};
+    trajectory_msgs::msg::JointTrajectoryPoint point;
+    point.positions = positions;
+    point.time_from_start = rclcpp::Duration::from_seconds(duration);
+    msg.points.push_back(point);
+    arm_pub_->publish(msg);
   }
 
-  std::atomic<bool> busy_{false};
+  void sendGripperCommand(double pos) {
+    trajectory_msgs::msg::JointTrajectory msg;
+    msg.joint_names = {"gripper"};
+    trajectory_msgs::msg::JointTrajectoryPoint point;
+    point.positions = {pos};
+    point.time_from_start = rclcpp::Duration::from_seconds(1.0);
+    msg.points.push_back(point);
+    gripper_pub_->publish(msg);
+  }
 
-  // Params
-  std::string base_frame_, markers_topic_;
-  unsigned target_id_;
-
-  std::string planning_group_, ee_link_;
-  double approach_dist_, grasp_advance_, lift_dist_;
-  double offset_x_, offset_y_, offset_z_;
-  bool do_place_{true};
-  double place_x_, place_y_, place_z_;
-  double place_roll_, place_pitch_, place_yaw_;
-
-  std::string gripper_action_;
-  double grip_open_, grip_close_, grip_effort_;
-
-  // ROS
+  rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr arm_pub_, gripper_pub_;
   rclcpp::Subscription<aruco_markers_msgs::msg::MarkerArray>::SharedPtr sub_;
-  rclcpp::TimerBase::SharedPtr init_timer_;
+  
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  rclcpp::TimerBase::SharedPtr scan_timer_;
+  rclcpp::Time last_detection_time_;
 
-  // TF
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
-
-  // MoveIt (delayed init)
-  std::unique_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
-  bool moveit_ready_{false};
-
-  // Gripper
-  rclcpp_action::Client<GripperCommand>::SharedPtr gripper_client_;
+  std::string base_frame_;
+  unsigned target_id_;
+  int scan_step_ = 0;
+  bool is_grasping_ = false;
 };
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<OmxMoveItPickNode>());
+  rclcpp::spin(std::make_shared<DirectServoPicker>());
   rclcpp::shutdown();
   return 0;
 }
