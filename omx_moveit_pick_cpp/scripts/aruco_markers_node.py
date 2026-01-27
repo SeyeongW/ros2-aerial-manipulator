@@ -41,12 +41,17 @@ class ArucoMarkerNode(Node):
     def __init__(self):
         super().__init__('aruco_markers_node')
 
+        if hasattr(cv2, "ocl"):
+            cv2.ocl.setUseOpenCL(False)
+        cv2.setNumThreads(1)
+
         self.declare_parameter("dictionary", "DICT_5X5_100")
         self.declare_parameter("marker_size", 0.06)
         self.declare_parameter("image_topic", "/camera/depth_camera/image_raw")
         self.declare_parameter("camera_info_topic", "/camera/depth_camera/camera_info")
         self.declare_parameter("annotated_image_topic", "/aruco/markers/image")
         self.declare_parameter("publish_debug", True)
+        self.declare_parameter("enable_pose", False)
 
         dict_str = self.get_parameter("dictionary").value
         self.marker_size = float(self.get_parameter("marker_size").value)
@@ -54,6 +59,7 @@ class ArucoMarkerNode(Node):
         info_topic = self.get_parameter("camera_info_topic").value
         debug_topic = self.get_parameter("annotated_image_topic").value
         self.publish_debug = bool(self.get_parameter("publish_debug").value)
+        self.enable_pose = bool(self.get_parameter("enable_pose").value)
 
         self.aruco_available = hasattr(cv2, "aruco")
         if not self.aruco_available:
@@ -83,6 +89,8 @@ class ArucoMarkerNode(Node):
         self.create_subscription(Image, image_topic, self.image_callback, qos_profile_sensor_data)
 
         self.get_logger().info(f"Aruco Node V4 on: {image_topic}")
+        if not self.enable_pose:
+            self.get_logger().warn("Pose estimation is disabled (enable_pose:=true to turn on).")
 
     def get_aruco_dictionary(self, dict_name):
         aruco_dict = {
@@ -197,7 +205,7 @@ class ArucoMarkerNode(Node):
         marker_array = MarkerArray()
         rvecs = None
         tvecs = None
-        if self.camera_matrix is not None and self.dist_coeffs is not None:
+        if self.enable_pose and self.camera_matrix is not None and self.dist_coeffs is not None:
             rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
                 corners, self.marker_size, self.camera_matrix, self.dist_coeffs
             )
