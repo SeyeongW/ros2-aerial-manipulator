@@ -114,9 +114,15 @@ class ArucoMarkerNode(Node):
                 self.first_log = True
 
             cv_image = None
+            if msg.width == 0 or msg.height == 0:
+                self.get_logger().warn("Received image with zero width/height; skipping frame.")
+                return
             np_arr = np.frombuffer(msg.data, np.uint8)
             if msg.step == 0:
                 self.get_logger().warn("Received image with step=0; skipping frame.")
+                return
+            if msg.step < msg.width * 3:
+                self.get_logger().warn("Image step is smaller than width*3; skipping frame.")
                 return
             expected_bytes = msg.height * msg.step
             if np_arr.size < expected_bytes:
