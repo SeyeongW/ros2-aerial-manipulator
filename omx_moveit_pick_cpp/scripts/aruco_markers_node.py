@@ -51,14 +51,16 @@ class ArucoMarkerNode(Node):
         self.declare_parameter("dictionary", "DICT_5X5_100")
         self.declare_parameter("marker_size", 0.06)
         self.declare_parameter("image_topic", "/camera/depth_camera/image_raw")
+        self.declare_parameter("depth_topic", "/camera/depth_camera/depth/image_raw")  # Added
         self.declare_parameter("camera_info_topic", "/camera/depth_camera/camera_info")
         self.declare_parameter("annotated_image_topic", "/aruco/markers/image")
         self.declare_parameter("publish_debug", True)
-        self.declare_parameter("enable_pose", False)
+        self.declare_parameter("enable_pose", True)  # Changed default to True to use pose logic
 
         dict_str = str(self.get_parameter("dictionary").value)
         self.marker_size = float(self.get_parameter("marker_size").value)
         image_topic = str(self.get_parameter("image_topic").value)
+        depth_topic = str(self.get_parameter("depth_topic").value)  # Added
         info_topic = str(self.get_parameter("camera_info_topic").value)
         debug_topic = str(self.get_parameter("annotated_image_topic").value)
         self.publish_debug = bool(self.get_parameter("publish_debug").value)
@@ -82,16 +84,14 @@ class ArucoMarkerNode(Node):
             self.aruco_params = None
         else:
             self.aruco_dict = self.get_aruco_dictionary(dict_str)
-
-            # IMPORTANT:
-            # Avoid cv2.aruco.DetectorParameters() and ArucoDetector in opencv-contrib-python 4.6.0.66,
-            # because DetectorParameters() is known to segfault in that wheel.
             # Use the legacy factory method instead.
             self.aruco_params = cv2.aruco.DetectorParameters_create()
+            self.aruco_params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
 
         self.camera_matrix = None
         self.dist_coeffs = None
         self.warned_encodings = set()
+        self.latest_depth_image = None  # Storage for depth image
 
         # Publishers
         self.marker_pub = self.create_publisher(MarkerArray, "/aruco/markers", 10)
@@ -100,8 +100,10 @@ class ArucoMarkerNode(Node):
         # Subscriptions (RELIABLE QoS)
         self.create_subscription(CameraInfo, info_topic, self.info_callback, self.qos_reliable)
         self.create_subscription(Image, image_topic, self.image_callback, self.qos_reliable)
+        # Depth Subscription
+        self.create_subscription(Image, depth_topic, self.depth_callback, self.qos_reliable)
 
-        self.get_logger().info(f"Aruco node running. image_topic={image_topic}")
+        self.get_logger().info(f"Aruco node running. image={image_topic}, depth={depth_topic}")
         if not self.enable_pose:
             self.get_logger().warn("Pose estimation is disabled (enable_pose:=true to turn on).")
 
@@ -132,6 +134,61 @@ class ArucoMarkerNode(Node):
         self.camera_matrix = np.ascontiguousarray(camera_matrix)
         self.dist_coeffs = np.ascontiguousarray(dist_coeffs)
         self.get_logger().info("CameraInfo received. Ready to process images.")
+
+    def depth_callback(self, msg: Image):
+        """Handle incoming depth images for Z-axis correction."""
+        try:
+            # Handle encoding
+            if msg.encoding == "16UC1":
+                # uint16 (mm) -> float32 (meters)
+                dtype = np.uint16
+                scale = 0.001
+            elif msg.encoding == "32FC1":
+                # float32 (meters)
+                dtype = np.float32
+                scale = 1.0
+            else:
+                self._warn_encoding_once(msg.encoding, f"Unsupported depth encoding: {msg.encoding}")
+                return
+
+            # Simple buffer extraction (assuming depth images are well-formed)
+            np_arr = np.frombuffer(msg.data, dtype=dtype)
+            
+            # Reshape
+            if msg.width * msg.height != np_arr.size:
+                # Basic check to avoid reshape errors if data is padded weirdly
+                return
+                
+            depth_img = np_arr.reshape((msg.height, msg.width))
+            
+            # Convert to float meters if needed
+            if scale != 1.0:
+                self.latest_depth_image = depth_img.astype(np.float32) * scale
+            else:
+                self.latest_depth_image = depth_img
+
+        except Exception as e:
+            # Silently fail on depth errors to avoid spamming, or use throttled logging
+            pass
+
+    def get_depth_at_center(self, corners):
+        """Sample depth at the center of the marker."""
+        if self.latest_depth_image is None:
+            return -1.0
+
+        # Corners is shape (1, 4, 2)
+        c = corners[0]
+        # Calculate centroid
+        cx = int(np.mean(c[:, 0]))
+        cy = int(np.mean(c[:, 1]))
+
+        h, w = self.latest_depth_image.shape
+        if 0 <= cx < w and 0 <= cy < h:
+            depth_val = self.latest_depth_image[cy, cx]
+            if np.isfinite(depth_val) and depth_val > 0.0:
+                return float(depth_val)
+        
+        return -1.0
 
     def _warn_encoding_once(self, encoding: str, message: str):
         if encoding in self.warned_encodings:
@@ -220,7 +277,7 @@ class ArucoMarkerNode(Node):
         if gray is None:
             return
 
-        # Legacy API path (more stable for opencv-contrib-python 4.6.0.66 than DetectorParameters()).
+        # Legacy API path
         corners, ids, _ = cv2.aruco.detectMarkers(
             gray, self.aruco_dict, parameters=self.aruco_params
         )
@@ -233,7 +290,7 @@ class ArucoMarkerNode(Node):
         rvecs = None
         tvecs = None
         if self.enable_pose and self.dist_coeffs is not None:
-            # Pose estimation requires correct camera intrinsics.
+            # Pose estimation
             rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
                 corners, self.marker_size, self.camera_matrix, self.dist_coeffs
             )
@@ -244,6 +301,12 @@ class ArucoMarkerNode(Node):
             marker_msg.id = int(ids[i][0])
 
             if tvecs is not None:
+                # Apply Depth Correction here
+                measured_z = self.get_depth_at_center(corners[i])
+                if measured_z > 0.0:
+                    # Overwrite Z with real sensor data
+                    tvecs[i][0][2] = measured_z
+
                 marker_msg.pose.pose.position.x = float(tvecs[i][0][0])
                 marker_msg.pose.pose.position.y = float(tvecs[i][0][1])
                 marker_msg.pose.pose.position.z = float(tvecs[i][0][2])
@@ -261,9 +324,11 @@ class ArucoMarkerNode(Node):
         self.marker_pub.publish(marker_array)
 
         if self.publish_debug:
-            # Draw markers on an RGB debug image
             debug_rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
             cv2.aruco.drawDetectedMarkers(debug_rgb, corners)
+            if tvecs is not None and rvecs is not None:
+                for i in range(len(ids)):
+                    cv2.drawFrameAxes(debug_rgb, self.camera_matrix, self.dist_coeffs, rvecs[i], tvecs[i], 0.05)
 
             out_msg = Image()
             out_msg.header = msg.header
