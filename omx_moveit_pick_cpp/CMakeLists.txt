@@ -14,8 +14,11 @@ find_package(trajectory_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(aruco_markers_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED) 
 
-# ===== C++ node (you replaced content inside this file) =====
+# ==========================================
+# 1. 기존 노드 (omx_moveit_pick_node)
+# ==========================================
 add_executable(omx_moveit_pick_node src/omx_moveit_pick_node.cpp)
 ament_target_dependencies(omx_moveit_pick_node
   rclcpp
@@ -26,10 +29,32 @@ ament_target_dependencies(omx_moveit_pick_node
   tf2_ros
   tf2_geometry_msgs
   aruco_markers_msgs
+  sensor_msgs
 )
 
+# ==========================================
+# 2. [추가] 새로 만든 그립 노드 (omx_grip_node) 등록
+# ==========================================
+add_executable(omx_grip_node src/omx_grip_node.cpp)
+
+ament_target_dependencies(omx_grip_node
+  rclcpp
+  rclcpp_action
+  control_msgs
+  geometry_msgs
+  trajectory_msgs
+  tf2_ros
+  tf2_geometry_msgs
+  sensor_msgs
+  aruco_markers_msgs
+)
+
+# ==========================================
+# 3. 설치 (Install)
+# ==========================================
 install(TARGETS
   omx_moveit_pick_node
+  omx_grip_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
