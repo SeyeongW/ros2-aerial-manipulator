@@ -1,0 +1,19 @@
+material ArucoBox/Marker
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      specular 0 0 0 1 0
+
+      texture_unit
+      {
+        texture aruco_5x5_100_id0.png
+        filtering none
+      }
+    }
+  }
+}

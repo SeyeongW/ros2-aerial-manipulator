@@ -1,0 +1,52 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <model name="aruco_box">
+    <static>false</static>
+
+    <link name="link">
+      <inertial>
+        <mass>0.05</mass>
+        <inertia>
+          <ixx>1e-5</ixx><iyy>1e-5</iyy><izz>1e-5</izz>
+          <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+        </inertia>
+      </inertial>
+
+      <collision name="box_col">
+        <geometry>
+          <box><size>0.06 0.06 0.03</size></box>
+        </geometry>
+      </collision>
+
+      <visual name="box_vis">
+        <geometry>
+          <box><size>0.06 0.06 0.03</size></box>
+        </geometry>
+        <material>
+          <ambient>0.7 0.7 0.7 1</ambient>
+          <diffuse>0.7 0.7 0.7 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- Top marker plane -->
+      <visual name="marker_plane">
+        <!-- box half height = 0.015, lift slightly to avoid z-fighting -->
+        <pose>0 0 0.0156 0 0 0</pose>
+        <geometry>
+          <plane>
+            <normal>0 0 1</normal>
+            <size>0.06 0.06</size>
+          </plane>
+        </geometry>
+        <material>
+          <script>
+            <uri>model://aruco_box/materials/scripts</uri>
+            <uri>model://aruco_box/materials/textures</uri>
+            <name>ArucoBox/Marker</name>
+          </script>
+        </material>
+      </visual>
+
+    </link>
+  </model>
+</sdf>
