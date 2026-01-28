@@ -18,7 +18,7 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 using namespace std::chrono_literals;
-using GripperCommand = control_msgs::action::GripperCommand; 
+using GripperCommand = control_msgs::action::GripperCommand;
 
 enum class RobotState {
   INIT_GRIPPER,
@@ -39,12 +39,21 @@ static inline double clamp(double v, double lo, double hi) {
 class PickAndPlaceNode : public rclcpp::Node {
 public:
   PickAndPlaceNode() : Node("omx_pick_place_node") {
+    // --- 파라미터 ---
     base_frame_   = declare_parameter<std::string>("base_frame", "link1");
     target_id_    = static_cast<unsigned int>(declare_parameter<int>("target_id", 0));
     marker_topic_ = declare_parameter<std::string>("marker_topic", "/aruco/markers");
     arm_topic_    = declare_parameter<std::string>("arm_topic", "/arm_controller/joint_trajectory");
-    
     gripper_action_topic_ = declare_parameter<std::string>("gripper_action_topic", "/gripper_controller/gripper_cmd");
+
+    // [핵심] 카메라-그리퍼 오프셋 (User Custom)
+    // "카메라가 그리퍼보다 3cm 위에 있다" ==> 좌표를 3cm 내려야 함
+    // Z축 오프셋: -0.03 (3cm 아래로)
+    z_offset_ = -0.03; 
+    
+    // X축 오프셋: 그리퍼가 카메라보다 뒤에 있다면 앞으로 더 보내야 함
+    // (필요 시 수정: 0.035 등) 일단 0.0으로 둠
+    x_offset_ = 0.0; 
 
     // [하드웨어 스펙]
     base_off_z_ = 0.077; base_off_x_ = 0.012; 
@@ -53,13 +62,10 @@ public:
     current_state_ = RobotState::INIT_GRIPPER;
     state_start_time_ = this->now();
     
-    // [전략 변수]
-    locked_yaw_ = 0.0;
-    locked_dist_ = 0.0;
-    locked_pitch_ = 0.0; 
+    // 스냅샷 변수
+    locked_yaw_ = 0.0; locked_dist_ = 0.0; locked_pitch_ = 0.0; locked_z_ = 0.0;
     
-    command_sent_ = false;
-    first_scan_ = true;
+    command_sent_ = false; first_scan_ = true; target_found_ = false;
     current_joints_ = {0.0, -1.0, 0.3, 0.7}; 
 
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -68,10 +74,7 @@ public:
     rclcpp::QoS qos(rclcpp::KeepLast(10));
     qos.best_effort();
     
-    // Arm은 기존대로 Publisher 사용
     arm_pub_ = create_publisher<trajectory_msgs::msg::JointTrajectory>(arm_topic_, qos);
-    
-    // [NEW] Gripper는 Action Client 사용!
     gripper_action_client_ = rclcpp_action::create_client<GripperCommand>(this, gripper_action_topic_);
 
     sub_ = create_subscription<aruco_markers_msgs::msg::MarkerArray>(
@@ -82,7 +85,7 @@ public:
     timer_ = this->create_wall_timer(
       50ms, std::bind(&PickAndPlaceNode::controlLoop, this));
 
-    RCLCPP_INFO(get_logger(), "=== MODE: Action Client Gripper (Correct Way) ===");
+    RCLCPP_INFO(get_logger(), "=== MODE: Manual Offset (Z -3cm) ===");
   }
 
 private:
@@ -94,8 +97,8 @@ private:
     switch (current_state_) {
       case RobotState::INIT_GRIPPER:
         if (!command_sent_) {
-            operateGripper(true);
-            RCLCPP_INFO(get_logger(), ">> INIT: Action Open Sent");
+            operateGripper(true); 
+            RCLCPP_INFO(get_logger(), ">> INIT: Action Open");
             command_sent_ = true;
         }
         if (time_in_state > 2.0) changeState(RobotState::SCANNING);
@@ -109,21 +112,18 @@ private:
       case RobotState::EXECUTE_ALIGN:
         if (!command_sent_) {
              double align_height = (locked_pitch_ == 0.0) ? 0.15 : 0.20;
-             solveAndMoveLockYaw(locked_dist_, 0.0, saved_target_z_ + align_height, locked_yaw_, locked_pitch_, 1.5);
+             solveAndMoveLockYaw(locked_dist_, 0.0, locked_z_ + align_height, locked_yaw_, locked_pitch_, 1.5);
              RCLCPP_INFO(get_logger(), ">> [1/3] ALIGNING...");
              command_sent_ = true;
         }
         if (time_in_state > 1.6) changeState(RobotState::EXECUTE_REACH);
         break;
 
-      // 2. 접근
+      // 2. 뻗기 (여기서 이미 Z는 -3cm 된 상태)
       case RobotState::EXECUTE_REACH:
         if (!command_sent_) {
-            double approach_height;
-            if (locked_pitch_ == 0.0) approach_height = 0.02; 
-            else approach_height = 0.15; 
-
-            solveAndMoveLockYaw(locked_dist_, 0.0, saved_target_z_ + approach_height, locked_yaw_, locked_pitch_, 1.5); 
+            double approach_height = (locked_pitch_ == 0.0) ? 0.02 : 0.15; 
+            solveAndMoveLockYaw(locked_dist_, 0.0, locked_z_ + approach_height, locked_yaw_, locked_pitch_, 1.5); 
             RCLCPP_INFO(get_logger(), ">> [2/3] REACHING...");
             command_sent_ = true;
         }
@@ -133,21 +133,23 @@ private:
       // 3. 하강
       case RobotState::EXECUTE_DOWN:
         if (!command_sent_) {
-            double floor_target_z = 0.01; 
-            if (locked_pitch_ == 0.0) floor_target_z = saved_target_z_; 
+            double final_z = locked_z_; 
+            
+            // 바닥 보호 (너무 내려가면 0.5cm로 제한)
+            if (final_z < 0.005) final_z = 0.005; 
 
-            solveAndMoveLockYaw(locked_dist_, 0.0, floor_target_z, locked_yaw_, locked_pitch_, 1.5); 
-            RCLCPP_INFO(get_logger(), ">> [3/3] LANDING...");
+            solveAndMoveLockYaw(locked_dist_, 0.0, final_z, locked_yaw_, locked_pitch_, 1.5); 
+            RCLCPP_INFO(get_logger(), ">> [3/3] LANDING at Z=%.3f...", final_z);
             command_sent_ = true;
         }
         if (time_in_state > 2.0) changeState(RobotState::GRASPING); 
         break;
 
-      // 4. 잡기
+      // 4. 잡기 (Action Client)
       case RobotState::GRASPING:
         if (!command_sent_) {
-            operateGripper(false); // Close (Action)
-            RCLCPP_INFO(get_logger(), ">> GRAB ACTION SENT!");
+            operateGripper(false); 
+            RCLCPP_INFO(get_logger(), ">> GRAB ACTION!");
             command_sent_ = true;
         }
         if (time_in_state > 2.5) changeState(RobotState::LIFT);
@@ -156,7 +158,7 @@ private:
       // 5. 들기
       case RobotState::LIFT:
         if (!command_sent_) {
-            solveAndMoveLockYaw(locked_dist_, 0.0, saved_target_z_ + 0.25, locked_yaw_, locked_pitch_, 2.0);
+            solveAndMoveLockYaw(locked_dist_, 0.0, locked_z_ + 0.25, locked_yaw_, locked_pitch_, 2.0);
             RCLCPP_INFO(get_logger(), ">> LIFT");
             command_sent_ = true;
         }
@@ -176,11 +178,12 @@ private:
       // 7. 놓기
       case RobotState::RELEASE:
         if (!command_sent_) {
-            operateGripper(true); // Open (Action)
-            RCLCPP_INFO(get_logger(), ">> RELEASE ACTION SENT");
+            operateGripper(true); 
+            RCLCPP_INFO(get_logger(), ">> RELEASE ACTION");
             command_sent_ = true;
         }
         if (time_in_state > 2.0) {
+            target_found_ = false; 
             changeState(RobotState::SCANNING); 
         }
         break;
@@ -194,6 +197,7 @@ private:
   }
 
   void cbMarkers(const aruco_markers_msgs::msg::MarkerArray::SharedPtr msg) {
+    if (target_found_) return; // 이미 찾았으면 무시
     if (current_state_ != RobotState::SCANNING) return;
 
     for (const auto &m : msg->markers) {
@@ -206,29 +210,34 @@ private:
           if (tf_buffer_->canTransform(base_frame_, m.header.frame_id, tf2::TimePointZero)) {
              base_pose = tf_buffer_->transform(cam_pose, base_frame_, tf2::durationFromSec(0.1));
              
-             double tx = base_pose.pose.position.x;
-             double ty = base_pose.pose.position.y;
-             double tz = base_pose.pose.position.z;
-             double dist = std::sqrt(tx*tx + ty*ty);
+             // [원본 좌표]
+             double raw_x = base_pose.pose.position.x;
+             double raw_y = base_pose.pose.position.y;
+             double raw_z = base_pose.pose.position.z;
 
-             if (tz < -0.05) tz = 0.0; 
+             // [보정 적용] Z축을 강제로 3cm 내림 (-0.03)
+             double final_x = raw_x + x_offset_;
+             double final_y = raw_y;
+             double final_z = raw_z + z_offset_; // <-- 여기가 핵심!
+
+             double dist = std::sqrt(final_x*final_x + final_y*final_y);
              if (dist < 0.05 || dist > 0.45) continue;
 
-             saved_target_x_ = tx;
-             saved_target_y_ = ty;
-             saved_target_z_ = tz;
+             RCLCPP_INFO(get_logger(), "Target Found! Origin Z: %.3f -> Corrected Z: %.3f", raw_z, final_z);
+
+             // 스냅샷 저장
+             saved_target_x_ = final_x;
+             saved_target_y_ = final_y;
+             saved_target_z_ = final_z;
              
              locked_dist_ = dist;
-             locked_yaw_ = std::atan2(ty, tx);
+             locked_yaw_ = std::atan2(final_y, final_x);
+             locked_z_   = final_z;
 
-             if (dist > 0.22) {
-                 locked_pitch_ = 0.0; 
-                 RCLCPP_INFO(get_logger(), "⚡ FOUND (%.2fm) -> HORIZONTAL", dist);
-             } else {
-                 locked_pitch_ = -1.57; 
-                 RCLCPP_INFO(get_logger(), "⚡ FOUND (%.2fm) -> VERTICAL", dist);
-             }
+             if (dist > 0.22) locked_pitch_ = 0.0; 
+             else locked_pitch_ = -1.57; 
 
+             target_found_ = true; 
              changeState(RobotState::EXECUTE_ALIGN);
           }
         } catch (tf2::TransformException &e) {}
@@ -323,19 +332,15 @@ private:
 
   void operateGripper(bool open) {
     if (!gripper_action_client_->wait_for_action_server(std::chrono::seconds(1))) {
-      RCLCPP_ERROR(get_logger(), "Action server not available after waiting");
+      RCLCPP_ERROR(get_logger(), "Action server not available");
       return;
     }
 
     auto goal_msg = GripperCommand::Goal();
-    
-    if (open) {
-        goal_msg.command.position = 0.015;
-    } else {
-        goal_msg.command.position = 0.0;
-    }
-    
-    goal_msg.command.max_effort = 1.0;
+    if (open) goal_msg.command.position = 0.015; 
+    else goal_msg.command.position = 0.0;   
+    goal_msg.command.max_effort = 1.0; 
+
     auto send_goal_options = rclcpp_action::Client<GripperCommand>::SendGoalOptions();
     gripper_action_client_->async_send_goal(goal_msg, send_goal_options);
   }
@@ -343,16 +348,17 @@ private:
   std::string base_frame_, marker_topic_, arm_topic_, gripper_action_topic_;
   unsigned int target_id_;
   double base_off_z_, base_off_x_, L1_, L2_, Lw_;
+  double x_offset_, z_offset_; // 오프셋 변수
+
   RobotState current_state_;
   rclcpp::Time state_start_time_, last_scan_time_; 
   bool first_scan_, target_found_, command_sent_; 
   double saved_target_x_, saved_target_y_, saved_target_z_;
-  double locked_yaw_, locked_dist_, locked_pitch_;
+  double locked_yaw_, locked_dist_, locked_pitch_, locked_z_;
   std::vector<double> current_joints_;
 
   rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr arm_pub_;
   rclcpp_action::Client<GripperCommand>::SharedPtr gripper_action_client_;
-  
   rclcpp::Subscription<aruco_markers_msgs::msg::MarkerArray>::SharedPtr sub_;
   rclcpp::TimerBase::SharedPtr timer_;
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
