@@ -6,8 +6,8 @@
 #include <algorithm>
 
 #include "rclcpp/rclcpp.hpp"
-#include "rclcpp_action/rclcpp_action.hpp" // [NEW] 액션 클라이언트 헤더
-#include "control_msgs/action/gripper_command.hpp" // [NEW] 그리퍼 액션 메시지
+#include "rclcpp_action/rclcpp_action.hpp" 
+#include "control_msgs/action/gripper_command.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "trajectory_msgs/msg/joint_trajectory.hpp"
 #include "trajectory_msgs/msg/joint_trajectory_point.hpp"
@@ -18,7 +18,7 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 using namespace std::chrono_literals;
-using GripperCommand = control_msgs::action::GripperCommand; // 단축 이름
+using GripperCommand = control_msgs::action::GripperCommand; 
 
 enum class RobotState {
   INIT_GRIPPER,
@@ -39,14 +39,11 @@ static inline double clamp(double v, double lo, double hi) {
 class PickAndPlaceNode : public rclcpp::Node {
 public:
   PickAndPlaceNode() : Node("omx_pick_place_node") {
-    // --- 파라미터 ---
     base_frame_   = declare_parameter<std::string>("base_frame", "link1");
     target_id_    = static_cast<unsigned int>(declare_parameter<int>("target_id", 0));
     marker_topic_ = declare_parameter<std::string>("marker_topic", "/aruco/markers");
     arm_topic_    = declare_parameter<std::string>("arm_topic", "/arm_controller/joint_trajectory");
     
-    // [NEW] 그리퍼 액션 서버 이름 (이미지 참고)
-    // 보통 "/gripper_controller/gripper_cmd" 입니다.
     gripper_action_topic_ = declare_parameter<std::string>("gripper_action_topic", "/gripper_controller/gripper_cmd");
 
     // [하드웨어 스펙]
@@ -97,7 +94,7 @@ private:
     switch (current_state_) {
       case RobotState::INIT_GRIPPER:
         if (!command_sent_) {
-            operateGripper(true); // Open (Action)
+            operateGripper(true);
             RCLCPP_INFO(get_logger(), ">> INIT: Action Open Sent");
             command_sent_ = true;
         }
@@ -146,7 +143,7 @@ private:
         if (time_in_state > 2.0) changeState(RobotState::GRASPING); 
         break;
 
-      // 4. 잡기 (Action Client 사용)
+      // 4. 잡기
       case RobotState::GRASPING:
         if (!command_sent_) {
             operateGripper(false); // Close (Action)
@@ -176,7 +173,7 @@ private:
         if (time_in_state > 3.0) changeState(RobotState::RELEASE);
         break;
 
-      // 7. 놓기 (Action Client 사용)
+      // 7. 놓기
       case RobotState::RELEASE:
         if (!command_sent_) {
             operateGripper(true); // Open (Action)
@@ -324,7 +321,6 @@ private:
     current_joints_ = q;
   }
 
-  // [핵심 변경] Action Client를 사용하여 그리퍼 제어
   void operateGripper(bool open) {
     if (!gripper_action_client_->wait_for_action_server(std::chrono::seconds(1))) {
       RCLCPP_ERROR(get_logger(), "Action server not available after waiting");
@@ -334,14 +330,12 @@ private:
     auto goal_msg = GripperCommand::Goal();
     
     if (open) {
-        goal_msg.command.position = 0.015; // Open Position (From Image)
+        goal_msg.command.position = 0.015;
     } else {
-        goal_msg.command.position = 0.0;   // Close Position (From Image)
+        goal_msg.command.position = 0.0;
     }
     
-    goal_msg.command.max_effort = 1.0; // 힘 꽉!
-
-    // 비동기 전송
+    goal_msg.command.max_effort = 1.0;
     auto send_goal_options = rclcpp_action::Client<GripperCommand>::SendGoalOptions();
     gripper_action_client_->async_send_goal(goal_msg, send_goal_options);
   }
@@ -357,7 +351,6 @@ private:
   std::vector<double> current_joints_;
 
   rclcpp::Publisher<trajectory_msgs::msg::JointTrajectory>::SharedPtr arm_pub_;
-  // [NEW] Action Client 멤버 변수
   rclcpp_action::Client<GripperCommand>::SharedPtr gripper_action_client_;
   
   rclcpp::Subscription<aruco_markers_msgs::msg::MarkerArray>::SharedPtr sub_;
