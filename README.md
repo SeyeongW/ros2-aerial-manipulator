@@ -51,3 +51,23 @@ ros2 launch omx_moveit_pick_cpp aruco_pick_place.launch.py \
   place_y:=0.00 \
   place_z:=0.10
 ```
+## Execution Steps
+
+1. Launch Robot Controller (U2D2)
+Open a new terminal and run the hardware driver.
+
+```bash
+ros2 launch open_manipulator_x_bringup hardware.launch.py
+```
+2. Launch MoveIt MoveGroup
+Open a new terminal and run the MoveIt 2 path planning node.
+
+```bash
+ros2 launch open_manipulator_x_moveit_config move_group.launch.py
+```
+3. Run Application Node
+Open a new terminal and run the main application (Camera + Tracking + Control).
+
+```bash
+ros2 launch omx_real_pick hardware.launch.py
+```
