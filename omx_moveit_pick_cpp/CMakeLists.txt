@@ -14,7 +14,9 @@ find_package(trajectory_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(aruco_markers_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED) 
+find_package(sensor_msgs REQUIRED)
+# [중요] MoveIt 라이브러리 추가
+find_package(moveit_ros_planning_interface REQUIRED)
 
 # ==========================================
 # 1. 기존 노드 (omx_moveit_pick_node)
@@ -30,13 +32,13 @@ ament_target_dependencies(omx_moveit_pick_node
   tf2_geometry_msgs
   aruco_markers_msgs
   sensor_msgs
+  # 기존 노드도 MoveIt을 쓴다면 여기에 추가해야 함
 )
 
 # ==========================================
-# 2. [추가] 새로 만든 그립 노드 (omx_grip_node) 등록
+# 2. [MoveIt 버전] 그립 노드 (omx_grip_node)
 # ==========================================
 add_executable(omx_grip_node src/omx_grip_node.cpp)
-
 ament_target_dependencies(omx_grip_node
   rclcpp
   rclcpp_action
@@ -47,6 +49,7 @@ ament_target_dependencies(omx_grip_node
   tf2_geometry_msgs
   sensor_msgs
   aruco_markers_msgs
+  moveit_ros_planning_interface
 )
 
 # ==========================================
