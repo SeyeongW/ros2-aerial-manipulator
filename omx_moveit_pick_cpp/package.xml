@@ -18,6 +18,7 @@
   <depend>rclcpp_action</depend>
   <depend>control_msgs</depend>
   <depend>moveit_ros_planning_interface</depend>
+  <depend>moveit_ros_move_group</depend>
   <depend>aruco_markers_msgs</depend>
   <depend>cv_bridge</depend>
   <exec_depend>python3-opencv</exec_depend>

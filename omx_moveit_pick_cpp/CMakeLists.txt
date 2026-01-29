@@ -15,11 +15,12 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(aruco_markers_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
-# [중요] MoveIt 라이브러리 추가
+# [필수] MoveIt 패키지 찾기
 find_package(moveit_ros_planning_interface REQUIRED)
+find_package(moveit_ros_move_group REQUIRED)
 
 # ==========================================
-# 1. 기존 노드 (omx_moveit_pick_node)
+# 1. Main Node (omx_moveit_pick_node) - 수정됨
 # ==========================================
 add_executable(omx_moveit_pick_node src/omx_moveit_pick_node.cpp)
 ament_target_dependencies(omx_moveit_pick_node
@@ -32,11 +33,13 @@ ament_target_dependencies(omx_moveit_pick_node
   tf2_geometry_msgs
   aruco_markers_msgs
   sensor_msgs
-  # 기존 노드도 MoveIt을 쓴다면 여기에 추가해야 함
+  # [수정] 아래 두 줄이 없어서 에러가 났던 것입니다. 추가해주세요!
+  moveit_ros_planning_interface
+  moveit_ros_move_group
 )
 
 # ==========================================
-# 2. [MoveIt 버전] 그립 노드 (omx_grip_node)
+# 2. Grip Node (omx_grip_node) - 유지
 # ==========================================
 add_executable(omx_grip_node src/omx_grip_node.cpp)
 ament_target_dependencies(omx_grip_node
@@ -53,7 +56,7 @@ ament_target_dependencies(omx_grip_node
 )
 
 # ==========================================
-# 3. 설치 (Install)
+# 3. Install
 # ==========================================
 install(TARGETS
   omx_moveit_pick_node
@@ -61,13 +64,11 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# ===== Python node (aruco detector) =====
 install(PROGRAMS
   scripts/aruco_markers_node.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# ===== launch files =====
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME}
