@@ -34,7 +34,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         rs_launch,
-        camera_tf,
         TimerAction(period=5.0, actions=[aruco_node]),
         TimerAction(period=8.0, actions=[control_node])
     ])
