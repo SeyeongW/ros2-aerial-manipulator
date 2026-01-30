@@ -13,9 +13,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(trajectory_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(aruco_markers_msgs REQUIRED)
+find_package(ros2_aruco_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
-# [필수] MoveIt 패키지 찾기
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_ros_move_group REQUIRED)
 
@@ -31,9 +30,8 @@ ament_target_dependencies(omx_moveit_pick_node
   trajectory_msgs
   tf2_ros
   tf2_geometry_msgs
-  aruco_markers_msgs
+  ros2_aruco_interfaces
   sensor_msgs
-  # [수정] 아래 두 줄이 없어서 에러가 났던 것입니다. 추가해주세요!
   moveit_ros_planning_interface
   moveit_ros_move_group
 )
@@ -51,7 +49,7 @@ ament_target_dependencies(omx_grip_node
   tf2_ros
   tf2_geometry_msgs
   sensor_msgs
-  aruco_markers_msgs
+  ros2_aruco_interfaces
   moveit_ros_planning_interface
 )
 

@@ -1,0 +1,138 @@
+[0.000000] (-) TimerEvent: {}
+[0.000601] (omx_moveit_pick_cpp) JobQueued: {'identifier': 'omx_moveit_pick_cpp', 'dependencies': OrderedDict()}
+[0.001064] (omx_real_pick) JobQueued: {'identifier': 'omx_real_pick', 'dependencies': OrderedDict()}
+[0.001287] (omx_moveit_pick_cpp) JobStarted: {'identifier': 'omx_moveit_pick_cpp'}
+[0.014519] (omx_real_pick) JobStarted: {'identifier': 'omx_real_pick'}
+[0.032170] (omx_moveit_pick_cpp) JobProgress: {'identifier': 'omx_moveit_pick_cpp', 'progress': 'cmake'}
+[0.033470] (omx_moveit_pick_cpp) Command: {'cmd': ['/usr/bin/cmake', '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_moveit_pick_cpp', '-DCMAKE_INSTALL_PREFIX=/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp'], 'cwd': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_moveit_pick_cpp', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'sw'), ('LC_TIME', 'ko_KR.UTF-8'), ('XDG_SESSION_TYPE', 'x11'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/home/sw/ros2_ws/install/px4_ros_com/lib:/home/sw/ros2_ws/install/px4_msgs/lib:/home/sw/install/px4_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/aarch64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/sw'), ('OLDPWD', '/home/sw/ros2_ws/src'), ('DESKTOP_SESSION', 'ubuntu'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/terminator.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('LC_MONETARY', 'ko_KR.UTF-8'), ('MANAGERPID', '1493'), ('SYSTEMD_EXEC_PID', '2125'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('TERMINATOR_DBUS_NAME', 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '5517'), ('IM_CONFIG_PHASE', '1'), ('COLCON_PREFIX_PATH', '/home/sw/ros2_ws/install:/home/sw/ros2_ws/src/PX4-ROS2/install:/home/sw/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'sw'), ('JOURNAL_STREAM', '8:41218'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'sw'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/home/sw/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/sw-desktop:@/tmp/.ICE-unix/2086,unix/sw-desktop:/tmp/.ICE-unix/2086'), ('INVOCATION_ID', '3e8ae2697be941f181c8b114e854623b'), ('XDG_MENU_PREFIX', 'gnome-'), ('LC_ADDRESS', 'ko_KR.UTF-8'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('DISPLAY', ':0'), ('TERMINATOR_DBUS_PATH', '/net/tenshu/Terminator2'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('IBUS_DISABLE_SNOOPER', '1'), ('LC_TELEPHONE', 'ko_KR.UTF-8'), ('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('ROS_DOMAIN_ID', '0'), ('AMENT_PREFIX_PATH', '/home/sw/ros2_ws/install/px4_ros_com:/home/sw/ros2_ws/install/offboard:/home/sw/ros2_ws/install/px4_msgs:/home/sw/ros2_ws/install/opencv_webcam_sub:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/opencv_webcam_sub:/home/sw/ros2_ws/src/PX4-ROS2/install/offboard:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/offboard:/home/sw/install/px4_msgs:/home/sw/install/camera_detection:/opt/ros/humble'), ('SHELL', '/bin/bash'), ('LC_NAME', 'ko_KR.UTF-8'), ('TERMINATOR_UUID', 'urn:uuid:1386d716-f930-4879-87b1-230dec91cdd4'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('LC_MEASUREMENT', 'ko_KR.UTF-8'), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('LC_IDENTIFICATION', 'ko_KR.UTF-8'), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_moveit_pick_cpp'), ('LC_ALL', 'en_US.UTF-8'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('XDG_DATA_DIRS', '/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/home/sw/ros2_ws/install/px4_ros_com/local/lib/python3.10/dist-packages:/home/sw/ros2_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/home/sw/ros2_ws/install/camera_detection/lib/python3.10/site-packages:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection/lib/python3.10/site-packages:/home/sw/build/yolo_detection:/home/sw/install/yolo_detection/lib/python3.10/site-packages:/home/sw/install/px4_msgs/local/lib/python3.10/dist-packages:/home/sw/install/camera_detection/lib/python3.10/site-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages:/usr/local/lib'), ('LC_NUMERIC', 'ko_KR.UTF-8'), ('LC_PAPER', 'ko_KR.UTF-8'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/home/sw/ros2_ws/install/px4_ros_com:/home/sw/ros2_ws/install/offboard:/home/sw/ros2_ws/install/px4_msgs:/home/sw/ros2_ws/install/opencv_webcam_sub:/home/sw/ros2_ws/src/PX4-ROS2/install/opencv_webcam_sub:/home/sw/ros2_ws/src/PX4-ROS2/install/offboard:/home/sw/install/offboard:/home/sw/install/px4_msgs:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/camera_detection:/opt/ros/humble')]), 'shell': False}
+[0.042192] (omx_real_pick) JobProgress: {'identifier': 'omx_real_pick', 'progress': 'cmake'}
+[0.043187] (omx_real_pick) Command: {'cmd': ['/usr/bin/cmake', '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_real_pick', '-DCMAKE_INSTALL_PREFIX=/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_real_pick'], 'cwd': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_real_pick', 'env': OrderedDict([('GJS_DEBUG_TOPICS', 'JS ERROR;JS LOG'), ('LESSOPEN', '| /usr/bin/lesspipe %s'), ('USER', 'sw'), ('LC_TIME', 'ko_KR.UTF-8'), ('XDG_SESSION_TYPE', 'x11'), ('SHLVL', '1'), ('LD_LIBRARY_PATH', '/home/sw/ros2_ws/install/px4_ros_com/lib:/home/sw/ros2_ws/install/px4_msgs/lib:/home/sw/install/px4_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/aarch64-linux-gnu:/opt/ros/humble/lib'), ('HOME', '/home/sw'), ('OLDPWD', '/home/sw/ros2_ws/src'), ('DESKTOP_SESSION', 'ubuntu'), ('GIO_LAUNCHED_DESKTOP_FILE', '/usr/share/applications/terminator.desktop'), ('ROS_PYTHON_VERSION', '3'), ('GNOME_SHELL_SESSION_MODE', 'ubuntu'), ('GTK_MODULES', 'gail:atk-bridge'), ('LC_MONETARY', 'ko_KR.UTF-8'), ('MANAGERPID', '1493'), ('SYSTEMD_EXEC_PID', '2125'), ('DBUS_SESSION_BUS_ADDRESS', 'unix:path=/run/user/1000/bus'), ('COLORTERM', 'truecolor'), ('TERMINATOR_DBUS_NAME', 'net.tenshu.Terminator21a9d5db22c73a993ff0b42f64b396873'), ('GIO_LAUNCHED_DESKTOP_FILE_PID', '5517'), ('IM_CONFIG_PHASE', '1'), ('COLCON_PREFIX_PATH', '/home/sw/ros2_ws/install:/home/sw/ros2_ws/src/PX4-ROS2/install:/home/sw/install'), ('ROS_DISTRO', 'humble'), ('GTK_IM_MODULE', 'ibus'), ('LOGNAME', 'sw'), ('JOURNAL_STREAM', '8:41218'), ('_', '/usr/bin/colcon'), ('ROS_VERSION', '2'), ('XDG_SESSION_CLASS', 'user'), ('USERNAME', 'sw'), ('TERM', 'xterm-256color'), ('GNOME_DESKTOP_SESSION_ID', 'this-is-deprecated'), ('ROS_LOCALHOST_ONLY', '0'), ('WINDOWPATH', '2'), ('PATH', '/opt/ros/humble/bin:/home/sw/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin'), ('SESSION_MANAGER', 'local/sw-desktop:@/tmp/.ICE-unix/2086,unix/sw-desktop:/tmp/.ICE-unix/2086'), ('INVOCATION_ID', '3e8ae2697be941f181c8b114e854623b'), ('XDG_MENU_PREFIX', 'gnome-'), ('LC_ADDRESS', 'ko_KR.UTF-8'), ('XDG_RUNTIME_DIR', '/run/user/1000'), ('DISPLAY', ':0'), ('TERMINATOR_DBUS_PATH', '/net/tenshu/Terminator2'), ('LANG', 'en_US.UTF-8'), ('XDG_CURRENT_DESKTOP', 'ubuntu:GNOME'), ('IBUS_DISABLE_SNOOPER', '1'), ('LC_TELEPHONE', 'ko_KR.UTF-8'), ('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp'), ('XMODIFIERS', '@im=ibus'), ('XDG_SESSION_DESKTOP', 'ubuntu'), ('XAUTHORITY', '/run/user/1000/gdm/Xauthority'), ('LS_COLORS', 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'), ('SSH_AGENT_LAUNCHER', 'gnome-keyring'), ('SSH_AUTH_SOCK', '/run/user/1000/keyring/ssh'), ('ROS_DOMAIN_ID', '0'), ('AMENT_PREFIX_PATH', '/home/sw/ros2_ws/install/px4_ros_com:/home/sw/ros2_ws/install/offboard:/home/sw/ros2_ws/install/px4_msgs:/home/sw/ros2_ws/install/opencv_webcam_sub:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/opencv_webcam_sub:/home/sw/ros2_ws/src/PX4-ROS2/install/offboard:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/offboard:/home/sw/install/px4_msgs:/home/sw/install/camera_detection:/opt/ros/humble'), ('SHELL', '/bin/bash'), ('LC_NAME', 'ko_KR.UTF-8'), ('TERMINATOR_UUID', 'urn:uuid:1386d716-f930-4879-87b1-230dec91cdd4'), ('QT_ACCESSIBILITY', '1'), ('GDMSESSION', 'ubuntu'), ('LESSCLOSE', '/usr/bin/lesspipe %s %s'), ('LC_MEASUREMENT', 'ko_KR.UTF-8'), ('GPG_AGENT_INFO', '/run/user/1000/gnupg/S.gpg-agent:0:1'), ('GJS_DEBUG_OUTPUT', 'stderr'), ('LC_IDENTIFICATION', 'ko_KR.UTF-8'), ('QT_IM_MODULE', 'ibus'), ('PWD', '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_real_pick'), ('LC_ALL', 'en_US.UTF-8'), ('XDG_CONFIG_DIRS', '/etc/xdg/xdg-ubuntu:/etc/xdg'), ('XDG_DATA_DIRS', '/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop'), ('PYTHONPATH', '/home/sw/ros2_ws/install/px4_ros_com/local/lib/python3.10/dist-packages:/home/sw/ros2_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/home/sw/ros2_ws/install/camera_detection/lib/python3.10/site-packages:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection/lib/python3.10/site-packages:/home/sw/build/yolo_detection:/home/sw/install/yolo_detection/lib/python3.10/site-packages:/home/sw/install/px4_msgs/local/lib/python3.10/dist-packages:/home/sw/install/camera_detection/lib/python3.10/site-packages:/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages:/usr/local/lib'), ('LC_NUMERIC', 'ko_KR.UTF-8'), ('LC_PAPER', 'ko_KR.UTF-8'), ('COLCON', '1'), ('VTE_VERSION', '6800'), ('CMAKE_PREFIX_PATH', '/home/sw/ros2_ws/install/px4_ros_com:/home/sw/ros2_ws/install/offboard:/home/sw/ros2_ws/install/px4_msgs:/home/sw/ros2_ws/install/opencv_webcam_sub:/home/sw/ros2_ws/src/PX4-ROS2/install/opencv_webcam_sub:/home/sw/ros2_ws/src/PX4-ROS2/install/offboard:/home/sw/install/offboard:/home/sw/install/px4_msgs:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/camera_detection:/opt/ros/humble')]), 'shell': False}
+[0.099568] (-) TimerEvent: {}
+[0.136272] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.4.0\n'}
+[0.154715] (omx_real_pick) StdoutLine: {'line': b'-- The C compiler identification is GNU 11.4.0\n'}
+[0.199763] (-) TimerEvent: {}
+[0.240086] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.4.0\n'}
+[0.256199] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.268020] (omx_real_pick) StdoutLine: {'line': b'-- The CXX compiler identification is GNU 11.4.0\n'}
+[0.280022] (omx_real_pick) StdoutLine: {'line': b'-- Detecting C compiler ABI info\n'}
+[0.299935] (-) TimerEvent: {}
+[0.382398] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.393601] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[0.394184] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.394912] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.400280] (-) TimerEvent: {}
+[0.401037] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.404298] (omx_real_pick) StdoutLine: {'line': b'-- Detecting C compiler ABI info - done\n'}
+[0.418708] (omx_real_pick) StdoutLine: {'line': b'-- Check for working C compiler: /usr/bin/cc - skipped\n'}
+[0.419185] (omx_real_pick) StdoutLine: {'line': b'-- Detecting C compile features\n'}
+[0.419725] (omx_real_pick) StdoutLine: {'line': b'-- Detecting C compile features - done\n'}
+[0.425050] (omx_real_pick) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info\n'}
+[0.500431] (-) TimerEvent: {}
+[0.536478] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.550365] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[0.551251] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.551391] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.555979] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.570876] (omx_real_pick) StdoutLine: {'line': b'-- Detecting CXX compiler ABI info - done\n'}
+[0.585197] (omx_real_pick) StdoutLine: {'line': b'-- Check for working CXX compiler: /usr/bin/c++ - skipped\n'}
+[0.585734] (omx_real_pick) StdoutLine: {'line': b'-- Detecting CXX compile features\n'}
+[0.586675] (omx_real_pick) StdoutLine: {'line': b'-- Detecting CXX compile features - done\n'}
+[0.593608] (omx_real_pick) StdoutLine: {'line': b'-- Found ament_cmake: 1.3.12 (/opt/ros/humble/share/ament_cmake/cmake)\n'}
+[0.602275] (-) TimerEvent: {}
+[0.703111] (-) TimerEvent: {}
+[0.804225] (-) TimerEvent: {}
+[0.905010] (-) TimerEvent: {}
+[0.907374] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter \n'}
+[0.929740] (omx_real_pick) StdoutLine: {'line': b'-- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter \n'}
+[1.005184] (-) TimerEvent: {}
+[1.106071] (-) TimerEvent: {}
+[1.136865] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found rclcpp: 16.0.16 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[1.150305] (omx_real_pick) StdoutLine: {'line': b'-- Found rclcpp: 16.0.16 (/opt/ros/humble/share/rclcpp/cmake)\n'}
+[1.206976] (-) TimerEvent: {}
+[1.235744] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.7 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[1.242442] (omx_real_pick) StdoutLine: {'line': b'-- Found rosidl_generator_c: 3.1.7 (/opt/ros/humble/share/rosidl_generator_c/cmake)\n'}
+[1.251482] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.7 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[1.256512] (omx_real_pick) StdoutLine: {'line': b'-- Found rosidl_adapter: 3.1.7 (/opt/ros/humble/share/rosidl_adapter/cmake)\n'}
+[1.270711] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.7 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[1.272502] (omx_real_pick) StdoutLine: {'line': b'-- Found rosidl_generator_cpp: 3.1.7 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)\n'}
+[1.294407] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[1.295723] (omx_real_pick) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c\n'}
+[1.307074] (-) TimerEvent: {}
+[1.325237] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[1.327735] (omx_real_pick) StdoutLine: {'line': b'-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp\n'}
+[1.407261] (-) TimerEvent: {}
+[1.413861] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[1.420000] (omx_real_pick) StdoutLine: {'line': b'-- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)\n'}
+[1.420363] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.9 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)\n'}
+[1.426363] (omx_real_pick) StdoutLine: {'line': b'-- Found rmw_fastrtps_cpp: 6.2.9 (/opt/ros/humble/share/rmw_fastrtps_cpp/cmake)\n'}
+[1.507433] (-) TimerEvent: {}
+[1.582947] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found OpenSSL: /usr/lib/aarch64-linux-gnu/libcrypto.so (found version "3.0.2")  \n'}
+[1.592349] (omx_real_pick) StdoutLine: {'line': b'-- Found OpenSSL: /usr/lib/aarch64-linux-gnu/libcrypto.so (found version "3.0.2")  \n'}
+[1.607562] (-) TimerEvent: {}
+[1.636394] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found FastRTPS: /opt/ros/humble/include  \n'}
+[1.653122] (omx_real_pick) StdoutLine: {'line': b'-- Found FastRTPS: /opt/ros/humble/include  \n'}
+[1.707746] (-) TimerEvent: {}
+[1.713113] (omx_moveit_pick_cpp) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[1.731318] (omx_real_pick) StdoutLine: {'line': b"-- Using RMW implementation 'rmw_fastrtps_cpp' as default\n"}
+[1.732165] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Looking for pthread.h\n'}
+[1.758415] (omx_real_pick) StdoutLine: {'line': b'-- Looking for pthread.h\n'}
+[1.807927] (-) TimerEvent: {}
+[1.865128] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Looking for pthread.h - found\n'}
+[1.866123] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[1.890211] (omx_real_pick) StdoutLine: {'line': b'-- Looking for pthread.h - found\n'}
+[1.890918] (omx_real_pick) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD\n'}
+[1.908099] (-) TimerEvent: {}
+[2.003058] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n'}
+[2.007243] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found Threads: TRUE  \n'}
+[2.008150] (-) TimerEvent: {}
+[2.024270] (omx_real_pick) StdoutLine: {'line': b'-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success\n'}
+[2.026983] (omx_real_pick) StdoutLine: {'line': b'-- Found Threads: TRUE  \n'}
+[2.108399] (-) TimerEvent: {}
+[2.136623] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Found rclcpp_action: 16.0.16 (/opt/ros/humble/share/rclcpp_action/cmake)\n'}
+[2.144026] (omx_real_pick) StdoutLine: {'line': b'-- Found rclcpp_action: 16.0.16 (/opt/ros/humble/share/rclcpp_action/cmake)\n'}
+[2.208566] (-) TimerEvent: {}
+[2.214147] (omx_moveit_pick_cpp) StderrLine: {'line': b'\x1b[31mCMake Error at CMakeLists.txt:11 (find_package):\n'}
+[2.214547] (omx_moveit_pick_cpp) StderrLine: {'line': b'  By not providing "Findcontrol_msgs.cmake" in CMAKE_MODULE_PATH this project\n'}
+[2.214706] (omx_moveit_pick_cpp) StderrLine: {'line': b'  has asked CMake to find a package configuration file provided by\n'}
+[2.214831] (omx_moveit_pick_cpp) StderrLine: {'line': b'  "control_msgs", but CMake did not find one.\n'}
+[2.214944] (omx_moveit_pick_cpp) StderrLine: {'line': b'\n'}
+[2.215050] (omx_moveit_pick_cpp) StderrLine: {'line': b'  Could not find a package configuration file provided by "control_msgs" with\n'}
+[2.215155] (omx_moveit_pick_cpp) StderrLine: {'line': b'  any of the following names:\n'}
+[2.215254] (omx_moveit_pick_cpp) StderrLine: {'line': b'\n'}
+[2.215352] (omx_moveit_pick_cpp) StderrLine: {'line': b'    control_msgsConfig.cmake\n'}
+[2.215448] (omx_moveit_pick_cpp) StderrLine: {'line': b'    control_msgs-config.cmake\n'}
+[2.215542] (omx_moveit_pick_cpp) StderrLine: {'line': b'\n'}
+[2.215635] (omx_moveit_pick_cpp) StderrLine: {'line': b'  Add the installation prefix of "control_msgs" to CMAKE_PREFIX_PATH or set\n'}
+[2.215731] (omx_moveit_pick_cpp) StderrLine: {'line': b'  "control_msgs_DIR" to a directory containing one of the above files.  If\n'}
+[2.215827] (omx_moveit_pick_cpp) StderrLine: {'line': b'  "control_msgs" provides a separate development package or SDK, be sure it\n'}
+[2.215923] (omx_moveit_pick_cpp) StderrLine: {'line': b'  has been installed.\n'}
+[2.216016] (omx_moveit_pick_cpp) StderrLine: {'line': b'\n'}
+[2.216128] (omx_moveit_pick_cpp) StderrLine: {'line': b'\x1b[0m\n'}
+[2.216234] (omx_moveit_pick_cpp) StdoutLine: {'line': b'-- Configuring incomplete, errors occurred!\n'}
+[2.216357] (omx_moveit_pick_cpp) StdoutLine: {'line': b'See also "/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_moveit_pick_cpp/CMakeFiles/CMakeOutput.log".\n'}
+[2.227054] (omx_real_pick) StderrLine: {'line': b'\x1b[31mCMake Error at CMakeLists.txt:11 (find_package):\n'}
+[2.227570] (omx_real_pick) StderrLine: {'line': b'  By not providing "Findmoveit_ros_planning_interface.cmake" in\n'}
+[2.227709] (omx_real_pick) StderrLine: {'line': b'  CMAKE_MODULE_PATH this project has asked CMake to find a package\n'}
+[2.227825] (omx_real_pick) StderrLine: {'line': b'  configuration file provided by "moveit_ros_planning_interface", but CMake\n'}
+[2.227931] (omx_real_pick) StderrLine: {'line': b'  did not find one.\n'}
+[2.228034] (omx_real_pick) StderrLine: {'line': b'\n'}
+[2.228163] (omx_real_pick) StderrLine: {'line': b'  Could not find a package configuration file provided by\n'}
+[2.228267] (omx_real_pick) StderrLine: {'line': b'  "moveit_ros_planning_interface" with any of the following names:\n'}
+[2.228364] (omx_real_pick) StderrLine: {'line': b'\n'}
+[2.228457] (omx_real_pick) StderrLine: {'line': b'    moveit_ros_planning_interfaceConfig.cmake\n'}
+[2.228569] (omx_real_pick) StderrLine: {'line': b'    moveit_ros_planning_interface-config.cmake\n'}
+[2.228664] (omx_real_pick) StderrLine: {'line': b'\n'}
+[2.228757] (omx_real_pick) StderrLine: {'line': b'  Add the installation prefix of "moveit_ros_planning_interface" to\n'}
+[2.228852] (omx_real_pick) StderrLine: {'line': b'  CMAKE_PREFIX_PATH or set "moveit_ros_planning_interface_DIR" to a directory\n'}
+[2.228946] (omx_real_pick) StderrLine: {'line': b'  containing one of the above files.  If "moveit_ros_planning_interface"\n'}
+[2.229040] (omx_real_pick) StderrLine: {'line': b'  provides a separate development package or SDK, be sure it has been\n'}
+[2.229134] (omx_real_pick) StderrLine: {'line': b'  installed.\n'}
+[2.229228] (omx_real_pick) StderrLine: {'line': b'\n'}
+[2.229320] (omx_real_pick) StderrLine: {'line': b'\x1b[0m\n'}
+[2.229413] (omx_real_pick) StdoutLine: {'line': b'-- Configuring incomplete, errors occurred!\n'}
+[2.229533] (omx_real_pick) StdoutLine: {'line': b'See also "/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_real_pick/CMakeFiles/CMakeOutput.log".\n'}
+[2.237157] (omx_moveit_pick_cpp) CommandEnded: {'returncode': 1}
+[2.254707] (omx_real_pick) CommandEnded: {'returncode': 1}
+[2.285067] (omx_moveit_pick_cpp) JobEnded: {'identifier': 'omx_moveit_pick_cpp', 'rc': 1}
+[2.287457] (omx_real_pick) JobEnded: {'identifier': 'omx_real_pick', 'rc': 'SIGINT'}
+[2.298348] (-) EventReactorShutdown: {}

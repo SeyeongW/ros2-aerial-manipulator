@@ -1,0 +1,214 @@
+[0.218s] [34mcolcon[0m [1;30mDEBUG[0m [32mCommand line arguments: ['/usr/bin/colcon', 'build'][0m
+[0.219s] [34mcolcon[0m [1;30mDEBUG[0m [32mParsed command line arguments: Namespace(log_base=None, log_level=None, verb_name='build', build_base='build', install_base='install', merge_install=False, symlink_install=False, test_result_base=None, continue_on_error=False, executor='parallel', parallel_workers=6, event_handlers=None, ignore_user_meta=False, metas=['./colcon.meta'], base_paths=['.'], packages_ignore=None, packages_ignore_regex=None, paths=None, packages_up_to=None, packages_up_to_regex=None, packages_above=None, packages_above_and_dependencies=None, packages_above_depth=None, packages_select_by_dep=None, packages_skip_by_dep=None, packages_skip_up_to=None, packages_select_build_failed=False, packages_skip_build_finished=False, packages_select_test_failures=False, packages_skip_test_passed=False, packages_select=None, packages_skip=None, packages_select_regex=None, packages_skip_regex=None, packages_start=None, packages_end=None, allow_overriding=[], cmake_args=None, cmake_target=None, cmake_target_skip_unavailable=False, cmake_clean_cache=False, cmake_clean_first=False, cmake_force_configure=False, ament_cmake_args=None, catkin_cmake_args=None, catkin_skip_building_tests=False, verb_parser=<colcon_defaults.argument_parser.defaults.DefaultArgumentsDecorator object at 0xffffa6744220>, verb_extension=<colcon_core.verb.build.BuildVerb object at 0xffffa6707d90>, main=<bound method BuildVerb.main of <colcon_core.verb.build.BuildVerb object at 0xffffa6707d90>>)[0m
+[0.541s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(colcon_meta) check parameters
+[0.541s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(recursive) check parameters
+[0.541s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(ignore) check parameters
+[0.541s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(path) check parameters
+[0.541s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(colcon_meta) discover
+[0.541s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(recursive) discover
+[0.542s] [34mcolcon.colcon_core.package_discovery[0m [1;30mINFO[0m Crawling recursively for packages in '/home/sw/ros2_ws/src/ros2-aerial-manipulator'
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extensions ['ignore', 'ignore_ament_install']
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'ignore'
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'ignore_ament_install'
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extensions ['colcon_pkg']
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'colcon_pkg'
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extensions ['colcon_meta']
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'colcon_meta'
+[0.542s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extensions ['ros']
+[0.543s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'ros'
+[0.620s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extensions ['cmake', 'python']
+[0.621s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'cmake'
+[0.621s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'python'
+[0.621s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extensions ['python_setup_py']
+[0.621s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(.) by extension 'python_setup_py'
+[0.621s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(build) by extensions ['ignore', 'ignore_ament_install']
+[0.621s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(build) by extension 'ignore'
+[0.621s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(build) ignored
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extensions ['ignore', 'ignore_ament_install']
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'ignore'
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'ignore_ament_install'
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extensions ['colcon_pkg']
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'colcon_pkg'
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extensions ['colcon_meta']
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'colcon_meta'
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extensions ['ros']
+[0.622s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'ros'
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extensions ['cmake', 'python']
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'cmake'
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'python'
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extensions ['python_setup_py']
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models) by extension 'python_setup_py'
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extensions ['ignore', 'ignore_ament_install']
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'ignore'
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'ignore_ament_install'
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extensions ['colcon_pkg']
+[0.623s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'colcon_pkg'
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extensions ['colcon_meta']
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'colcon_meta'
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extensions ['ros']
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'ros'
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extensions ['cmake', 'python']
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'cmake'
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'python'
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extensions ['python_setup_py']
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box) by extension 'python_setup_py'
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extensions ['ignore', 'ignore_ament_install']
+[0.624s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'ignore'
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'ignore_ament_install'
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extensions ['colcon_pkg']
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'colcon_pkg'
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extensions ['colcon_meta']
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'colcon_meta'
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extensions ['ros']
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'ros'
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extensions ['cmake', 'python']
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'cmake'
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'python'
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extensions ['python_setup_py']
+[0.625s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials) by extension 'python_setup_py'
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extensions ['ignore', 'ignore_ament_install']
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'ignore'
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'ignore_ament_install'
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extensions ['colcon_pkg']
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'colcon_pkg'
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extensions ['colcon_meta']
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'colcon_meta'
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extensions ['ros']
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'ros'
+[0.626s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extensions ['cmake', 'python']
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'cmake'
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'python'
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extensions ['python_setup_py']
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/scripts) by extension 'python_setup_py'
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extensions ['ignore', 'ignore_ament_install']
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'ignore'
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'ignore_ament_install'
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extensions ['colcon_pkg']
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'colcon_pkg'
+[0.627s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extensions ['colcon_meta']
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'colcon_meta'
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extensions ['ros']
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'ros'
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extensions ['cmake', 'python']
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'cmake'
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'python'
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extensions ['python_setup_py']
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(gazebo_models/aruco_box/materials/textures) by extension 'python_setup_py'
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(install) by extensions ['ignore', 'ignore_ament_install']
+[0.628s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(install) by extension 'ignore'
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(install) ignored
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extensions ['ignore', 'ignore_ament_install']
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'ignore'
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'ignore_ament_install'
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extensions ['colcon_pkg']
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'colcon_pkg'
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extensions ['colcon_meta']
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'colcon_meta'
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extensions ['ros']
+[0.629s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'ros'
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extensions ['cmake', 'python']
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'cmake'
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'python'
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extensions ['python_setup_py']
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(launch) by extension 'python_setup_py'
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(log) by extensions ['ignore', 'ignore_ament_install']
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(log) by extension 'ignore'
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(log) ignored
+[0.630s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extensions ['ignore', 'ignore_ament_install']
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extension 'ignore'
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extension 'ignore_ament_install'
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extensions ['colcon_pkg']
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extension 'colcon_pkg'
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extensions ['colcon_meta']
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extension 'colcon_meta'
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extensions ['ros']
+[0.631s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_moveit_pick_cpp) by extension 'ros'
+[0.637s] [34mcolcon.colcon_core.package_identification[0m [1;30mDEBUG[0m [32mPackage 'omx_moveit_pick_cpp' with type 'ros.ament_cmake' and name 'omx_moveit_pick_cpp'[0m
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extensions ['ignore', 'ignore_ament_install']
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extension 'ignore'
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extension 'ignore_ament_install'
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extensions ['colcon_pkg']
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extension 'colcon_pkg'
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extensions ['colcon_meta']
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extension 'colcon_meta'
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extensions ['ros']
+[0.638s] [34mcolcon.colcon_core.package_identification[0m [1;30mLevel 1[0m _identify(omx_real_pick) by extension 'ros'
+[0.641s] [34mcolcon.colcon_core.package_identification[0m [1;30mDEBUG[0m [32mPackage 'omx_real_pick' with type 'ros.ament_cmake' and name 'omx_real_pick'[0m
+[0.641s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(recursive) using defaults
+[0.641s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(ignore) discover
+[0.641s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(ignore) using defaults
+[0.641s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(path) discover
+[0.641s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(path) using defaults
+[0.672s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(prefix_path) check parameters
+[0.672s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(prefix_path) discover
+[0.676s] [34mcolcon.colcon_installed_package_information.package_discovery[0m [1;30mDEBUG[0m [32mFound 5 installed packages in /home/sw/ros2_ws/install[0m
+[0.677s] [34mcolcon.colcon_installed_package_information.package_discovery[0m [1;30mDEBUG[0m [32mFound 3 installed packages in /home/sw/ros2_ws/src/PX4-ROS2/install[0m
+[0.678s] [34mcolcon.colcon_installed_package_information.package_discovery[0m [1;30mDEBUG[0m [32mFound 4 installed packages in /home/sw/install[0m
+[0.681s] [34mcolcon.colcon_installed_package_information.package_discovery[0m [1;30mDEBUG[0m [32mFound 283 installed packages in /opt/ros/humble[0m
+[0.683s] [34mcolcon.colcon_core.package_discovery[0m [1;30mLevel 1[0m discover_packages(prefix_path) using defaults
+[0.752s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'cmake_args' from command line to 'None'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'cmake_target' from command line to 'None'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'cmake_clean_cache' from command line to 'False'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'cmake_clean_first' from command line to 'False'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'cmake_force_configure' from command line to 'False'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'ament_cmake_args' from command line to 'None'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'catkin_cmake_args' from command line to 'None'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_moveit_pick_cpp' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.753s] [34mcolcon.colcon_core.verb[0m [1;30mDEBUG[0m [32mBuilding package 'omx_moveit_pick_cpp' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_moveit_pick_cpp', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp', 'merge_install': False, 'path': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_moveit_pick_cpp', 'symlink_install': False, 'test_result_base': None}[0m
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'cmake_args' from command line to 'None'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'cmake_target' from command line to 'None'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'cmake_target_skip_unavailable' from command line to 'False'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'cmake_clean_cache' from command line to 'False'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'cmake_clean_first' from command line to 'False'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'cmake_force_configure' from command line to 'False'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'ament_cmake_args' from command line to 'None'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'catkin_cmake_args' from command line to 'None'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mLevel 5[0m set package 'omx_real_pick' build argument 'catkin_skip_building_tests' from command line to 'False'
+[0.754s] [34mcolcon.colcon_core.verb[0m [1;30mDEBUG[0m [32mBuilding package 'omx_real_pick' with the following arguments: {'ament_cmake_args': None, 'build_base': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_real_pick', 'catkin_cmake_args': None, 'catkin_skip_building_tests': False, 'cmake_args': None, 'cmake_clean_cache': False, 'cmake_clean_first': False, 'cmake_force_configure': False, 'cmake_target': None, 'cmake_target_skip_unavailable': False, 'install_base': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_real_pick', 'merge_install': False, 'path': '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_real_pick', 'symlink_install': False, 'test_result_base': None}[0m
+[0.755s] [34mcolcon.colcon_core.executor[0m [1;30mINFO[0m Executing jobs using 'parallel' executor
+[0.757s] [34mcolcon.colcon_parallel_executor.executor.parallel[0m [1;30mDEBUG[0m [32mrun_until_complete[0m
+[0.757s] [34mcolcon.colcon_ros.task.ament_cmake.build[0m [1;30mINFO[0m Building ROS package in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_moveit_pick_cpp' with build type 'ament_cmake'
+[0.757s] [34mcolcon.colcon_cmake.task.cmake.build[0m [1;30mINFO[0m Building CMake package in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_moveit_pick_cpp'
+[0.761s] [34mcolcon.colcon_core.plugin_system[0m [1;30mINFO[0m Skipping extension 'colcon_core.shell.bat': Not used on non-Windows systems
+[0.762s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.762s] [34mcolcon.colcon_core.shell[0m [1;30mDEBUG[0m [32mSkip shell extension 'dsv' for command environment[0m
+[0.770s] [34mcolcon.colcon_ros.task.ament_cmake.build[0m [1;30mINFO[0m Building ROS package in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_real_pick' with build type 'ament_cmake'
+[0.771s] [34mcolcon.colcon_cmake.task.cmake.build[0m [1;30mINFO[0m Building CMake package in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_real_pick'
+[0.772s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Skip shell extension 'powershell' for command environment: Not usable outside of PowerShell
+[0.772s] [34mcolcon.colcon_core.shell[0m [1;30mDEBUG[0m [32mSkip shell extension 'dsv' for command environment[0m
+[0.795s] [34mcolcon.colcon_core.event_handler.log_command[0m [1;30mDEBUG[0m [32mInvoking command in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_moveit_pick_cpp': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/camera_detection:/opt/ros/humble /usr/bin/cmake /home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_moveit_pick_cpp -DCMAKE_INSTALL_PREFIX=/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp[0m
+[0.802s] [34mcolcon.colcon_core.event_handler.log_command[0m [1;30mDEBUG[0m [32mInvoking command in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_real_pick': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/camera_detection:/opt/ros/humble /usr/bin/cmake /home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_real_pick -DCMAKE_INSTALL_PREFIX=/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_real_pick[0m
+[2.994s] [34mcolcon.colcon_core.event_handler.log_command[0m [1;30mDEBUG[0m [32mInvoked command in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_moveit_pick_cpp' returned '1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/camera_detection:/opt/ros/humble /usr/bin/cmake /home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_moveit_pick_cpp -DCMAKE_INSTALL_PREFIX=/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp[0m
+[3.013s] [34mcolcon.colcon_core.event_handler.log_command[0m [1;30mDEBUG[0m [32mInvoked command in '/home/sw/ros2_ws/src/ros2-aerial-manipulator/build/omx_real_pick' returned '1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/sw/ros2_ws/install/camera_detection:/home/sw/ros2_ws/src/PX4-ROS2/install/camera_detection:/home/sw/install/yolo_detection:/home/sw/install/camera_detection:/opt/ros/humble /usr/bin/cmake /home/sw/ros2_ws/src/ros2-aerial-manipulator/omx_real_pick -DCMAKE_INSTALL_PREFIX=/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_real_pick[0m
+[3.024s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m create_environment_scripts_only(omx_moveit_pick_cpp)
+[3.030s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m checking '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp' for CMake module files
+[3.031s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m checking '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp' for CMake config files
+[3.031s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m checking '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/bin'
+[3.032s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m checking '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/lib/pkgconfig/omx_moveit_pick_cpp.pc'
+[3.032s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m checking '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/lib/python3.10/site-packages'
+[3.033s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m checking '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/bin'
+[3.033s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating package script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/share/omx_moveit_pick_cpp/package.ps1'
+[3.035s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating package descriptor '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/share/omx_moveit_pick_cpp/package.dsv'
+[3.036s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating package script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/share/omx_moveit_pick_cpp/package.sh'
+[3.038s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating package script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/share/omx_moveit_pick_cpp/package.bash'
+[3.039s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating package script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/share/omx_moveit_pick_cpp/package.zsh'
+[3.041s] [34mcolcon.colcon_core.environment[0m [1;30mLevel 1[0m create_file_with_runtime_dependencies(/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/omx_moveit_pick_cpp/share/colcon-core/packages/omx_moveit_pick_cpp)
+[3.053s] [34mcolcon.colcon_parallel_executor.executor.parallel[0m [1;30mDEBUG[0m [32mclosing loop[0m
+[3.053s] [34mcolcon.colcon_parallel_executor.executor.parallel[0m [1;30mDEBUG[0m [32mloop closed[0m
+[3.054s] [34mcolcon.colcon_parallel_executor.executor.parallel[0m [1;30mDEBUG[0m [32mrun_until_complete finished with '1'[0m
+[3.054s] [34mcolcon.colcon_core.event_reactor[0m [1;30mDEBUG[0m [32mjoining thread[0m
+[3.075s] [34mcolcon.colcon_core.plugin_system[0m [1;30mINFO[0m Skipping extension 'colcon_notification.desktop_notification.terminal_notifier': Not used on non-Darwin systems
+[3.075s] [34mcolcon.colcon_core.plugin_system[0m [1;30mINFO[0m Skipping extension 'colcon_notification.desktop_notification.win32': Not used on non-Windows systems
+[3.075s] [34mcolcon.colcon_notification.desktop_notification[0m [1;30mINFO[0m Sending desktop notification using 'notify2'
+[3.121s] [34mcolcon.colcon_core.event_reactor[0m [1;30mDEBUG[0m [32mjoined thread[0m
+[3.122s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/local_setup.ps1'
+[3.124s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix util module '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/_local_setup_util_ps1.py'
+[3.130s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix chain script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/setup.ps1'
+[3.134s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/local_setup.sh'
+[3.136s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix util module '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/_local_setup_util_sh.py'
+[3.138s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix chain script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/setup.sh'
+[3.142s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/local_setup.bash'
+[3.143s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix chain script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/setup.bash'
+[3.147s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/local_setup.zsh'
+[3.148s] [34mcolcon.colcon_core.shell[0m [1;30mINFO[0m Creating prefix chain script '/home/sw/ros2_ws/src/ros2-aerial-manipulator/install/setup.zsh'
