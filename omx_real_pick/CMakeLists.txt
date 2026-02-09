@@ -14,7 +14,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(control_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(aruco_markers_msgs REQUIRED)
+find_package(ros2_aruco_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
 # 1. 제어 노드 (C++)
@@ -28,7 +28,7 @@ ament_target_dependencies(real_pick_node
   control_msgs
   tf2_ros
   tf2_geometry_msgs
-  aruco_markers_msgs
+  ros2_aruco_interfaces
   sensor_msgs
 )
 
@@ -47,6 +47,11 @@ install(DIRECTORY scripts/
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME}
+)
+
+install(PROGRAMS
+  scripts/aruco_realsense.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
 ament_package()

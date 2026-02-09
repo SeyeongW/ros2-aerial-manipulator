@@ -18,14 +18,6 @@ def generate_launch_description():
         launch_arguments={'align_depth.enable': 'true'}.items()
     )
 
-    # 3. [중요] 카메라 위치 TF (자로 잰 값 입력: x y z yaw pitch roll)
-    # 예: link5(손끝)에서 앞으로 5cm, 위로 3cm
-    camera_tf = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        arguments=["0.05", "0.0", "0.03", "0", "0", "0", "link5", "camera_link"]
-    )
-
     # 4. 노드들
     aruco_node = Node(package="omx_real_pick", executable="aruco_realsense.py")
     
@@ -42,7 +34,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         rs_launch,
-        camera_tf,
         TimerAction(period=5.0, actions=[aruco_node]),
         TimerAction(period=8.0, actions=[control_node])
     ])
