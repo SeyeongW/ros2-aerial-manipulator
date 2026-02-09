@@ -310,5 +310,5 @@ int main(int argc, char** argv) {
         // 목표 z = (타겟 z + current_offset), 단 최저 높이 보호
         double target_z = std::max(final_min_z, mz + current_offset);
 
-        RCLCPP_INFO(node->get_logger(),
+        RCLCPP_INFO(node->get_logger()),
                     ">> APPROACH offset=%.3f  target=(%.3f, %.3f, %.3f)",

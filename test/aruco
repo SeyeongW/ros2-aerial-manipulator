@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+# ============================================================
+# aruco_subscriber_node.py (FIXED FULL)
+#
+# ✅ 이 노드의 역할(딱 2개만):
+#  1) 카메라 이미지에서 ArUco 마커(타겟 ID만) 인식
+#  2) 타겟의 위치/자세를 "토픽" + "TF"로 내보냄
+#
+# ❗중요: MoveIt이 멈추는 주요 원인이 '시간 stamp 꼬임'이었음.
+#        그래서 TF/pose stamp는 이미지 stamp가 아니라 "현재 노드 시간(now)"로 찍는다.
+#
+# Publish:
+#  - /aruco/target_visible : std_msgs/Bool
+#  - /aruco/target_pose    : geometry_msgs/PoseStamped (camera frame 기준)
+#  - TF: camera_frame -> aruco_marker_<target_id>  (타겟만 발행!)
+#  - /aruco/result_image   : 디버그 이미지
+# ============================================================
+
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+
+from cv_bridge import CvBridge
+from sensor_msgs.msg import Image, CameraInfo
+from geometry_msgs.msg import TransformStamped, PoseStamped
+from std_msgs.msg import Bool
+
+import cv2
+import cv2.aruco as aruco
+import numpy as np
+import tf2_ros
+
+
+def rotation_matrix_to_quaternion(R: np.ndarray):
+    """
+    회전행렬 -> 쿼터니언(x,y,z,w) 변환
+    (OpenCV Rodrigues 결과를 ROS Pose에 넣기 위해 필요)
+    """
+    tr = float(np.trace(R))
+    if tr > 0.0:
+        S = np.sqrt(tr + 1.0) * 2.0
+        qw = 0.25 * S
+        qx = (R[2, 1] - R[1, 2]) / S
+        qy = (R[0, 2] - R[2, 0]) / S
+        qz = (R[1, 0] - R[0, 1]) / S
+    elif (R[0, 0] > R[1, 1]) and (R[0, 0] > R[2, 2]):
+        S = np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2]) * 2.0
+        qw = (R[2, 1] - R[1, 2]) / S
+        qx = 0.25 * S
+        qy = (R[0, 1] + R[1, 0]) / S
+        qz = (R[0, 2] + R[2, 0]) / S
+    elif R[1, 1] > R[2, 2]:
+        S = np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2]) * 2.0
+        qw = (R[0, 2] - R[2, 0]) / S
+        qx = (R[0, 1] + R[1, 0]) / S
+        qy = 0.25 * S
+        qz = (R[1, 2] + R[2, 1]) / S
+    else:
+        S = np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1]) * 2.0
+        qw = (R[1, 0] - R[0, 1]) / S
+        qx = (R[0, 2] + R[2, 0]) / S
+        qy = (R[1, 2] + R[2, 1]) / S
+        qz = 0.25 * S
+    return [float(qx), float(qy), float(qz), float(qw)]
+
+
+class ArucoSubscriberNode(Node):
+    def __init__(self):
+        super().__init__("aruco_subscriber_node")
+
+        # --------------------------------------------------------
+        # ✅ 시뮬이면 use_sim_time=True 로 맞춰야 TF timestamp가 안 꼬인다.
+        #    (런치에서 use_sim_time을 통일하는게 가장 좋다.)
+        #    여기서는 "기본값 True"만 두고 강제하지는 않는다.
+        # --------------------------------------------------------
+        self.declare_parameter("use_sim_time", True)
+
+        # --------------------------------------------------------
+        # 파라미터들
+        # --------------------------------------------------------
+        self.declare_parameter("marker_size", 0.06)               # 마커 한변 (m)
+        self.declare_parameter("frame_id", "camera_link")         # 카메라 TF 프레임
+        self.declare_parameter("image_topic", "/camera/camera/color/image_raw")
+        self.declare_parameter("camera_info_topic", "/camera/camera/color/camera_info")
+        self.declare_parameter("target_id", 23)                   # ✅ 타겟 ID만 사용
+        self.declare_parameter("min_z", 0.02)                     # 너무 가까운 값 제거
+        self.declare_parameter("max_z", 2.0)                      # 너무 먼 값 제거
+
+        self.marker_size = float(self.get_parameter("marker_size").value)
+        self.camera_frame = str(self.get_parameter("frame_id").value)
+        self.target_id = int(self.get_parameter("target_id").value)
+        self.min_z = float(self.get_parameter("min_z").value)
+        self.max_z = float(self.get_parameter("max_z").value)
+
+        image_topic = str(self.get_parameter("image_topic").value)
+        info_topic = str(self.get_parameter("camera_info_topic").value)
+
+        # --------------------------------------------------------
+        # CameraInfo에서 K/D (실제 내재파라미터)
+        # --------------------------------------------------------
+        self.camera_matrix = None
+        self.dist_coeffs = None
+
+        # --------------------------------------------------------
+        # 여러 딕셔너리 탐지(네 코드 유지)
+        # --------------------------------------------------------
+        self.dict_collection = {
+            "6x6": aruco.DICT_6X6_250,
+            "5x5": aruco.DICT_5X5_100,
+            "4x4": aruco.DICT_4X4_50,
+            "ORIG": aruco.DICT_ARUCO_ORIGINAL
+        }
+        self.detectors = []
+        for name, dict_enum in self.dict_collection.items():
+            d = aruco.getPredefinedDictionary(dict_enum)
+            p = aruco.DetectorParameters()
+            det = aruco.ArucoDetector(d, p)
+            self.detectors.append((name, det))
+
+        # --------------------------------------------------------
+        # solvePnP용 마커 코너 좌표(로컬 프레임)
+        # --------------------------------------------------------
+        ms_half = self.marker_size / 2.0
+        self.marker_obj_points = np.array([
+            [-ms_half,  ms_half, 0.0],
+            [ ms_half,  ms_half, 0.0],
+            [ ms_half, -ms_half, 0.0],
+            [-ms_half, -ms_half, 0.0]
+        ], dtype=np.float32)
+
+        # --------------------------------------------------------
+        # QoS: 이미지라 BEST_EFFORT(지연 최소)
+        # --------------------------------------------------------
+        qos_img = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+
+        self.create_subscription(CameraInfo, info_topic, self.camera_info_callback, 10)
+        self.create_subscription(Image, image_topic, self.image_callback, qos_img)
+
+        # --------------------------------------------------------
+        # Publish
+        # --------------------------------------------------------
+        self.target_visible_pub = self.create_publisher(Bool, "/aruco/target_visible", 10)
+        self.target_pose_pub = self.create_publisher(PoseStamped, "/aruco/target_pose", 10)
+        self.image_res_pub = self.create_publisher(Image, "/aruco/result_image", 10)
+
+        # TF broadcaster
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
+
+        self.bridge = CvBridge()
+
+        self.get_logger().info(
+            f"✅ ArUco started | image={image_topic}, info={info_topic}, target_id={self.target_id}, frame={self.camera_frame}"
+        )
+
+    def camera_info_callback(self, msg: CameraInfo):
+        """
+        CameraInfo는 한 번만 받아도 충분.
+        """
+        if self.camera_matrix is not None:
+            return
+
+        K = np.array(msg.k, dtype=np.float64).reshape(3, 3)
+        if not np.isfinite(K).all() or np.allclose(K, 0.0):
+            self.get_logger().warn("CameraInfo K invalid; waiting...")
+            return
+
+        self.camera_matrix = K
+        if len(msg.d) > 0:
+            self.dist_coeffs = np.array(msg.d, dtype=np.float64).reshape(-1, 1)
+        else:
+            self.dist_coeffs = np.zeros((5, 1), dtype=np.float64)
+
+        self.get_logger().info("✅ CameraInfo received (REAL intrinsics).")
+
+    def image_callback(self, msg: Image):
+        """
+        핵심:
+        - 타겟 ID만 찾는다.
+        - TF/pose stamp는 '현재 시간(now)'로 찍어서 extrapolation 문제를 막는다.
+        """
+        if self.camera_matrix is None or self.dist_coeffs is None:
+            self.get_logger().warn_throttle(1.0, "Waiting for CameraInfo...")
+            return
+
+        try:
+            frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        except Exception as e:
+            self.get_logger().error(f"Image conversion failed: {e}")
+            return
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        vis_frame = frame.copy()
+
+        # ✅ 현재 시간(now): TF/pose stamp는 이걸 사용
+        now_msg = self.get_clock().now().to_msg()
+
+        target_found = False
+        best_pose = None
+        best_dict = None
+        best_z = None
+
+        # --------------------------------------------------------
+        # 딕셔너리별 검출
+        # --------------------------------------------------------
+        for dict_name, detector in self.detectors:
+            corners, ids, _ = detector.detectMarkers(gray)
+            if ids is None or len(ids) == 0:
+                continue
+
+            aruco.drawDetectedMarkers(vis_frame, corners, ids)
+
+            for i in range(len(ids)):
+                mid = int(ids[i][0])
+                if mid != self.target_id:
+                    # ✅ 타겟이 아니면 무시 (aruco_marker_0 같은 프레임 생성 방지)
+                    continue
+
+                ok, rvec, tvec = cv2.solvePnP(
+                    self.marker_obj_points,
+                    corners[i],
+                    self.camera_matrix,
+                    self.dist_coeffs,
+                    flags=cv2.SOLVEPNP_IPPE_SQUARE
+                )
+                if not ok:
+                    continue
+
+                px = float(tvec[0][0])
+                py = float(tvec[1][0])
+                pz = float(tvec[2][0])
+
+                # depth sanity check
+                if (not np.isfinite(pz)) or (pz <= self.min_z) or (pz > self.max_z):
+                    continue
+
+                rmat = cv2.Rodrigues(rvec)[0]
+                qx, qy, qz, qw = rotation_matrix_to_quaternion(rmat)
+
+                ps = PoseStamped()
+                ps.header.stamp = now_msg
+
+                # frame_id는 "항상 카메라 프레임"으로 고정
+                # (msg.header.frame_id가 비어있거나 엉킬 수 있어 명시가 안정적)
+                ps.header.frame_id = self.camera_frame
+
+                ps.pose.position.x = px
+                ps.pose.position.y = py
+                ps.pose.position.z = pz
+                ps.pose.orientation.x = qx
+                ps.pose.orientation.y = qy
+                ps.pose.orientation.z = qz
+                ps.pose.orientation.w = qw
+
+                # 여러번 잡히면 가장 가까운(z 작은) 값을 선택 (안정)
+                if (best_pose is None) or (pz < best_z):
+                    best_pose = ps
+                    best_dict = dict_name
+                    best_z = pz
+                    target_found = True
+
+        # --------------------------------------------------------
+        # 결과 이미지 publish
+        # --------------------------------------------------------
+        if target_found and best_pose is not None:
+            cv2.putText(
+                vis_frame,
+                f"TARGET {self.target_id} ({best_dict}) z={best_z:.2f}",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                (0, 255, 0), 2
+            )
+        else:
+            cv2.putText(
+                vis_frame,
+                f"TARGET {self.target_id} NOT FOUND",
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                (0, 0, 255), 2
+            )
+
+        vis_msg = self.bridge.cv2_to_imgmsg(vis_frame, encoding="bgr8")
+        vis_msg.header.stamp = now_msg
+        vis_msg.header.frame_id = self.camera_frame
+        self.image_res_pub.publish(vis_msg)
+
+        # --------------------------------------------------------
+        # visible 신호 publish
+        # --------------------------------------------------------
+        b = Bool()
+        b.data = bool(target_found)
+        self.target_visible_pub.publish(b)
+
+        # --------------------------------------------------------
+        # pose + TF publish (타겟만!)
+        # --------------------------------------------------------
+        if target_found and best_pose is not None:
+            self.target_pose_pub.publish(best_pose)
+
+            # ✅ TF도 타겟만 발행
+            t = TransformStamped()
+            t.header.stamp = now_msg
+            t.header.frame_id = self.camera_frame
+            t.child_frame_id = f"aruco_marker_{self.target_id}"
+            t.transform.translation.x = best_pose.pose.position.x
+            t.transform.translation.y = best_pose.pose.position.y
+            t.transform.translation.z = best_pose.pose.position.z
+            t.transform.rotation = best_pose.pose.orientation
+            self.tf_broadcaster.sendTransform(t)
+
+
+def main():
+    rclpy.init()
+    node = ArucoSubscriberNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
