@@ -65,7 +65,6 @@ int main(int argc, char** argv) {
   );
 
   // Force sim time ON (Gazebo publishes /clock). If you're on real robot, set false.
-  node->declare_parameter("use_sim_time", true);
   node->set_parameter(rclcpp::Parameter("use_sim_time", true));
 
   auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
