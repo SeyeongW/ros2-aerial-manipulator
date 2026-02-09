@@ -57,7 +57,7 @@ class ArucoSubscriberNode(Node):
         super().__init__("aruco_subscriber_node")
 
         # Use sim time by default (Gazebo). Set to False on real camera.
-        self.set_parameters([rclpy.parameter.Parameter("use_sim_time", rclpy.Parameter.Type.BOOL, True)])
+        self.set_parameters([rclpy.parameter.Parameter("use_sim_time", rclpy.Parameter.Type.BOOL, False)])
 
         # Parameters
         self.declare_parameter("marker_size", 0.06)
@@ -202,7 +202,8 @@ class ArucoSubscriberNode(Node):
 
                 # Publish TF: parent = camera frame, child = aruco_marker_ID
                 t = TransformStamped()
-                t.header = marker_msg.header
+                t.header.stamp = self.get_clock().now().to_msg()
+                t.header.frame_id = self.base_frame_id
                 t.child_frame_id = f"aruco_marker_{current_id}"
                 t.transform.translation.x = px
                 t.transform.translation.y = py

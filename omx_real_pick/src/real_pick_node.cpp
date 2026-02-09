@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
 
   // ---------- USER SETTINGS ----------
   std::string base_frame = "link1";
-  std::string target_marker = "aruco_marker_23";
+  std::string target_marker = "aruco_marker_0";
 
   // 탐색용 waypoint들 (너가 쓰던거 그대로)
   std::vector<std::vector<double>> waypoints = {
