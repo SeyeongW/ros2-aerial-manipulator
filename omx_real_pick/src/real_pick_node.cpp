@@ -1,100 +1,82 @@
-// ===============================
-// omx_real_picker.cpp (FULL)
-// Fixes applied:
-// 1) Force use_sim_time=true (consistent with Gazebo /clock)
-// 2) Use NodeOptions(automatically_declare_parameters_from_overrides=true)
-// 3) TF lookup with robust timeout + stamp freshness check
-// 4) Before every move(): setStartStateToCurrentState(), clearPoseTargets()
-// 5) Clamp marker position to sane workspace ranges (reject crazy tvec)
-// 6) Fix gripper close value (avoid negative if your gripper joint doesn't allow it)
-// 7) Stop "keep going after abort" behavior (fail-safe logic)
-// ===============================
-
-#include <memory>
-#include <thread>
-#include <vector>
-#include <cmath>
-#include <algorithm>
-
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <control_msgs/action/gripper_command.hpp>
-
 #include <moveit/move_group_interface/move_group_interface.h>
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
-#include <geometry_msgs/msg/transform_stamped.hpp>
+
+#include <chrono>
+#include <cmath>
+#include <thread>
+#include <vector>
+#include <deque>
+#include <algorithm>
 
 using GripperCommand = control_msgs::action::GripperCommand;
 using namespace std::chrono_literals;
 
-static inline double clampd(double v, double lo, double hi) {
+static double clamp(double v, double lo, double hi) {
   return std::max(lo, std::min(hi, v));
 }
 
-// NOTE: Many OM-X gripper configs expect joint value >= 0.0 for closing.
-// If yours is different, adjust CLOSE_POS below after checking joint limits in URDF/SRDF.
-static constexpr double GRIP_OPEN_POS  = 0.019;
-static constexpr double GRIP_CLOSE_POS = 0.000;   // safer than negative
-static constexpr double GRIP_EFFORT    = 0.5;
+static bool isFinite(double v) {
+  return std::isfinite(v);
+}
 
-static void operateGripper(
-  const rclcpp::Node::SharedPtr& node,
-  const rclcpp_action::Client<GripperCommand>::SharedPtr& client,
-  double pos
-) {
+void operateGripper(rclcpp::Node::SharedPtr node,
+                    rclcpp_action::Client<GripperCommand>::SharedPtr client,
+                    double pos)
+{
   if (!client->wait_for_action_server(2s)) {
     RCLCPP_ERROR(node->get_logger(), "Gripper action server not available");
     return;
   }
   auto goal = GripperCommand::Goal();
   goal.command.position = pos;
-  goal.command.max_effort = GRIP_EFFORT;
+  goal.command.max_effort = 0.5;
   client->async_send_goal(goal);
-  rclcpp::sleep_for(1s);
+  rclcpp::sleep_for(800ms);
 }
+
+enum class FSM {
+  SEARCH,        // joint sweep / waypoint loop
+  STABILIZE,     // require N consecutive fresh TFs, filter
+  APPROACH,      // moveit position target toward marker (step-down)
+  GRASP,         // close gripper
+  LIFT_AND_HOME  // lift & go home
+};
 
 int main(int argc, char** argv) {
   rclcpp::init(argc, argv);
 
-  // Receive overrides + enable sim time from launch/CLI, but also default true for Gazebo.
-  auto node = std::make_shared<rclcpp::Node>(
-    "omx_real_picker",
-    rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true)
-  );
-
-  // Force sim time ON (Gazebo publishes /clock). If you're on real robot, set false.
-  node->set_parameter(rclcpp::Parameter("use_sim_time", true));
-
+  auto node = std::make_shared<rclcpp::Node>("omx_real_picker");
   auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   exec->add_node(node);
   std::thread spinner([&exec](){ exec->spin(); });
 
   // TF
-  auto tf_buffer   = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  auto tf_buffer = std::make_unique<tf2_ros::Buffer>(node->get_clock());
   auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
   // MoveIt
   moveit::planning_interface::MoveGroupInterface arm(node, "arm");
+  arm.setMaxVelocityScalingFactor(0.15);
+  arm.setMaxAccelerationScalingFactor(0.15);
+  arm.setPlanningTime(5.0);
 
-  // Safety
-  arm.setMaxVelocityScalingFactor(0.1);
-  arm.setMaxAccelerationScalingFactor(0.1);
-  arm.setPlanningTime(10.0);
-  arm.setNumPlanningAttempts(5);
+  // position only (4DOF라 orientation은 빡세서 position 위주)
+  arm.setGoalPositionTolerance(0.03);      // 3cm
+  arm.setGoalOrientationTolerance(3.14);   // 사실상 무시
 
-  // Looser tolerances to reduce aborts for 4-DOF arm
-  arm.setGoalPositionTolerance(0.03);       // 3cm
-  arm.setGoalOrientationTolerance(3.14);    // ignore orientation
-
-  // Gripper action client
+  // Gripper Action
   auto gripper = rclcpp_action::create_client<GripperCommand>(node, "/gripper_controller/gripper_cmd");
 
-  // Open gripper at start
-  operateGripper(node, gripper, GRIP_OPEN_POS);
+  // ---------- USER SETTINGS ----------
+  std::string base_frame = "link1";
+  std::string target_marker = "aruco_marker_23";
 
-  // Search joint waypoints (joint order must match MoveIt group)
+  // 탐색용 waypoint들 (너가 쓰던거 그대로)
   std::vector<std::vector<double>> waypoints = {
     { 0.00, -0.20,  0.20,  0.80},
     { 1.00, -0.20,  0.20,  0.80},
@@ -102,140 +84,204 @@ int main(int argc, char** argv) {
     { 0.00, -0.60,  0.30,  1.20}
   };
 
+  // Gripper positions (환경마다 부호 다를 수 있음)
+  double GRIP_OPEN  = 0.019;
+  double GRIP_CLOSE = -0.001;
+
+  // APPROACH params
+  double hover_offset = 0.15;     // 마커 위/앞에서 시작할 거리
+  double step = 0.03;             // 접근 step
+  double final_min_z = 0.04;      // 바닥 꽂힘 방지용 최소 z (base_frame 기준)
+  double max_tf_age_sec = 0.7;    // TF 신선도 컷 (너무 오래된 TF는 무시)
+  int    stable_need = 5;         // 연속 N번 TF 확인 시 안정화 완료
+  int    max_fail_before_search = 3;
+
+  // filtering window (median)
+  const size_t FILTER_N = 7;
+  std::deque<double> fx, fy, fz;
+
+  auto push_and_median = [&](std::deque<double>& dq, double v) -> double {
+    dq.push_back(v);
+    if (dq.size() > FILTER_N) dq.pop_front();
+    std::vector<double> tmp(dq.begin(), dq.end());
+    std::sort(tmp.begin(), tmp.end());
+    return tmp[tmp.size()/2];
+  };
+
+  // ---------- INIT ----------
+  RCLCPP_INFO(node->get_logger(), ">> HOME");
+  arm.setNamedTarget("home");
+  arm.move();
+  rclcpp::sleep_for(800ms);
+
+  operateGripper(node, gripper, GRIP_OPEN);
+
+  FSM state = FSM::SEARCH;
   int wp_idx = 0;
 
-  // Approach height schedule:
-  // target_h is an extra "hover" above detected marker Z. We reduce gradually until final_h.
-  double target_h = 0.15;
-  double final_h  = 0.035;
+  int stable_count = 0;
+  int approach_fail = 0;
 
-  // TF frame names
-  const std::string base_frame   = "link1";
-  const std::string target_marker = "aruco_marker_23";
+  // 접근 높이(처음 hover_offset에서 시작해서 step으로 감소)
+  double current_offset = hover_offset;
 
-  int fail_count = 0;
+  // filtered marker
+  double mx=0, my=0, mz=0;
 
-  // Workspace sanity limits (meters) relative to link1
-  // Tweak if your workspace is bigger/smaller.
-  const double X_MIN = 0.05, X_MAX = 0.35;
-  const double Y_MIN = -0.25, Y_MAX = 0.25;
-  const double Z_MIN = 0.00, Z_MAX = 0.50;
+  auto getFreshMarker = [&](double& ox, double& oy, double& oz) -> bool {
+    try {
+      if (!tf_buffer->canTransform(base_frame, target_marker, tf2::TimePointZero, 50ms)) {
+        return false;
+      }
+      auto t = tf_buffer->lookupTransform(base_frame, target_marker, tf2::TimePointZero);
 
-  RCLCPP_INFO(node->get_logger(), "=== OMX REAL PICKER (TF marker -> MoveIt position target) ===");
-  RCLCPP_INFO(node->get_logger(), "Base frame: %s | Target marker frame: %s", base_frame.c_str(), target_marker.c_str());
+      rclcpp::Time now = node->get_clock()->now();
+      rclcpp::Time stamp = t.header.stamp;
+      double age = (now - stamp).seconds();
+
+      if (age > max_tf_age_sec) {
+        RCLCPP_WARN(node->get_logger(), "TF too old: %.2fs (ignore)", age);
+        return false;
+      }
+
+      double x = t.transform.translation.x;
+      double y = t.transform.translation.y;
+      double z = t.transform.translation.z;
+
+      if (!isFinite(x) || !isFinite(y) || !isFinite(z)) return false;
+
+      // filtering
+      ox = push_and_median(fx, x);
+      oy = push_and_median(fy, y);
+      oz = push_and_median(fz, z);
+
+      return true;
+    } catch (...) {
+      return false;
+    }
+  };
+
+  // ---------- LOOP ----------
+  rclcpp::Rate rate(10);
 
   while (rclcpp::ok()) {
-    double mx = 0.0, my = 0.0, mz = 0.0;
-    bool visible = false;
+    bool visible = getFreshMarker(mx, my, mz);
 
-    // -------- 1) TF lookup --------
-    try {
-      // Wait a bit for TF to become available
-      if (tf_buffer->canTransform(base_frame, target_marker, tf2::TimePointZero, 200ms)) {
-        auto t = tf_buffer->lookupTransform(base_frame, target_marker, tf2::TimePointZero);
+    switch (state) {
+      case FSM::SEARCH: {
+        stable_count = 0;
+        fx.clear(); fy.clear(); fz.clear();
 
-        // Stamp freshness check (sim time)
-        rclcpp::Time now = node->get_clock()->now();
-        rclcpp::Time msg_time = t.header.stamp;
-
-        // If stamp is zero (some publishers), skip freshness check
-        double delay = 0.0;
-        if (msg_time.nanoseconds() > 0) {
-          delay = (now - msg_time).seconds();
+        if (visible) {
+          RCLCPP_INFO(node->get_logger(), ">> Marker seen. Switching to STABILIZE");
+          state = FSM::STABILIZE;
+          break;
         }
 
-        if (msg_time.nanoseconds() == 0 || delay < 1.0) {
-          mx = t.transform.translation.x;
-          my = t.transform.translation.y;
-          mz = t.transform.translation.z;
+        // move to next waypoint (search motion)
+        RCLCPP_INFO(node->get_logger(), ">> SEARCH waypoint %d", wp_idx);
+        arm.setJointValueTarget(waypoints[wp_idx]);
+        arm.move();
+        wp_idx = (wp_idx + 1) % waypoints.size();
+        rclcpp::sleep_for(300ms);
+        break;
+      }
 
-          // Reject insane values early
-          if (std::isfinite(mx) && std::isfinite(my) && std::isfinite(mz)) {
-            if (mx >= X_MIN && mx <= X_MAX && my >= Y_MIN && my <= Y_MAX && mz >= Z_MIN && mz <= Z_MAX) {
-              visible = true;
-              RCLCPP_INFO_THROTTLE(
-                node->get_logger(), *node->get_clock(), 1000,
-                "Marker OK (delay %.2fs) xyz=(%.3f, %.3f, %.3f)", delay, mx, my, mz
-              );
-            } else {
-              RCLCPP_WARN_THROTTLE(
-                node->get_logger(), *node->get_clock(), 1000,
-                "Marker out of workspace xyz=(%.3f, %.3f, %.3f) -> ignore", mx, my, mz
-              );
-            }
+      case FSM::STABILIZE: {
+        if (!visible) {
+          stable_count = 0;
+          RCLCPP_WARN(node->get_logger(), ">> Lost marker. Back to SEARCH");
+          state = FSM::SEARCH;
+          break;
+        }
+
+        stable_count++;
+        RCLCPP_INFO(node->get_logger(), ">> STABILIZE %d/%d  (x=%.3f y=%.3f z=%.3f)", stable_count, stable_need, mx, my, mz);
+
+        if (stable_count >= stable_need) {
+          // reset approach
+          current_offset = hover_offset;
+          approach_fail = 0;
+
+          RCLCPP_INFO(node->get_logger(), ">> STABILIZE done. Switching to APPROACH");
+          state = FSM::APPROACH;
+        }
+        break;
+      }
+
+      case FSM::APPROACH: {
+        if (!visible) {
+          RCLCPP_WARN(node->get_logger(), ">> Lost marker during approach. Back to STABILIZE");
+          stable_count = 0;
+          state = FSM::STABILIZE;
+          break;
+        }
+
+        // 목표 z: 마커 높이 + offset, 단 너무 낮아지지 않게
+        double target_z = std::max(final_min_z, mz + current_offset);
+
+        RCLCPP_INFO(node->get_logger(), ">> APPROACH offset=%.3f  target=(%.3f, %.3f, %.3f)",
+                    current_offset, mx, my, target_z);
+
+        arm.setStartStateToCurrentState();
+        arm.setPositionTarget(mx, my, target_z);
+
+        auto result = arm.move();
+
+        if (result == moveit::core::MoveItErrorCode::SUCCESS) {
+          approach_fail = 0;
+
+          // offset 줄이기 (점진적으로 접근)
+          current_offset -= step;
+          if (current_offset <= 0.01) {
+            RCLCPP_INFO(node->get_logger(), ">> Reached near target. Switching to GRASP");
+            state = FSM::GRASP;
           }
         } else {
-          RCLCPP_WARN_THROTTLE(node->get_logger(), *node->get_clock(), 1000, "TF too old (delay %.2fs)", delay);
+          approach_fail++;
+          RCLCPP_ERROR(node->get_logger(), "Move failed (%d/%d).", approach_fail, max_fail_before_search);
+
+          if (approach_fail >= max_fail_before_search) {
+            RCLCPP_WARN(node->get_logger(), ">> Too many failures. Back to SEARCH");
+            state = FSM::SEARCH;
+          } else {
+            // 실패하면 살짝 offset 올려서 다시 시도 (충돌/도달불가 완화)
+            current_offset = std::min(hover_offset, current_offset + 0.05);
+          }
         }
-      }
-    } catch (const std::exception& e) {
-      RCLCPP_WARN_THROTTLE(node->get_logger(), *node->get_clock(), 1000, "TF exception: %s", e.what());
-    } catch (...) {
-      // ignore
-    }
-
-    // -------- 2) Search if not visible or too many fails --------
-    if (!visible || fail_count >= 5) {
-      if (fail_count >= 5) {
-        RCLCPP_WARN(node->get_logger(), ">> Resetting approach due to repeated failures.");
-        fail_count = 0;
-        target_h = 0.15;
-      } else {
-        RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 1000, ">> Searching for %s ...", target_marker.c_str());
+        break;
       }
 
-      // Always refresh start state before planning
-      arm.setStartStateToCurrentState();
-      arm.clearPoseTargets();
+      case FSM::GRASP: {
+        RCLCPP_INFO(node->get_logger(), ">> GRASPING!");
+        operateGripper(node, gripper, GRIP_CLOSE);
+        state = FSM::LIFT_AND_HOME;
+        break;
+      }
 
-      arm.setJointValueTarget(waypoints[wp_idx]);
-      (void)arm.move();  // ignore result; it's a scan motion
-      rclcpp::sleep_for(500ms);
+      case FSM::LIFT_AND_HOME: {
+        // lift: 현재 마커 기준으로 위로 올리되 안전하게
+        double lift_z = std::max(final_min_z + 0.10, mz + hover_offset);
+        RCLCPP_INFO(node->get_logger(), ">> LIFT to z=%.3f then HOME", lift_z);
 
-      wp_idx = (wp_idx + 1) % waypoints.size();
-      continue;
+        arm.setStartStateToCurrentState();
+        arm.setPositionTarget(mx, my, lift_z);
+        arm.move();
+
+        arm.setNamedTarget("home");
+        arm.move();
+
+        operateGripper(node, gripper, GRIP_OPEN);
+
+        // 반복하려면 SEARCH로, 1회면 break
+        RCLCPP_INFO(node->get_logger(), ">> Done. Switching to SEARCH");
+        state = FSM::SEARCH;
+        break;
+      }
     }
 
-    // -------- 3) Approach using position-only target --------
-    if (target_h <= final_h + 0.005) {
-      break; // close enough to grasp
-    }
-
-    const double target_z = std::max(final_h, mz + target_h);
-
-    RCLCPP_INFO(node->get_logger(), ">> Tracking: hover=%.3f => target_z=%.3f", target_h, target_z);
-
-    // IMPORTANT: refresh MoveIt start state each iteration
-    arm.setStartStateToCurrentState();
-    arm.clearPoseTargets();
-
-    // Position-only target in base frame (MoveIt will handle orientation as best it can)
-    arm.setPositionTarget(mx, my, target_z);
-
-    auto result = arm.move();
-    if (result == moveit::core::MoveItErrorCode::SUCCESS) {
-      target_h -= 0.03;
-      if (target_h < final_h) target_h = final_h;
-      fail_count = 0;
-      wp_idx = 0;
-    } else {
-      fail_count++;
-      RCLCPP_ERROR(node->get_logger(), "Move failed (%d/5). Will retry or re-search.", fail_count);
-      rclcpp::sleep_for(500ms);
-      continue;
-    }
+    rate.sleep();
   }
-
-  // -------- 4) Grasp --------
-  RCLCPP_INFO(node->get_logger(), ">> GRASPING!");
-  operateGripper(node, gripper, GRIP_CLOSE_POS);
-
-  // -------- 5) Return home --------
-  arm.setStartStateToCurrentState();
-  arm.clearPoseTargets();
-
-  arm.setNamedTarget("home");
-  (void)arm.move();
 
   rclcpp::shutdown();
   spinner.join();
