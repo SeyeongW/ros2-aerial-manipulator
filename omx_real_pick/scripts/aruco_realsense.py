@@ -57,7 +57,6 @@ class ArucoSubscriberNode(Node):
         super().__init__("aruco_subscriber_node")
 
         # Use sim time by default (Gazebo). Set to False on real camera.
-        self.declare_parameter("use_sim_time", True)
         self.set_parameters([rclpy.parameter.Parameter("use_sim_time", rclpy.Parameter.Type.BOOL, True)])
 
         # Parameters
