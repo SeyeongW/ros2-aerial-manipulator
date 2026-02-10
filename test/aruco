@@ -1,5 +1,3 @@
-
-
 #  1) 카메라 이미지에서 ArUco 마커(타겟 ID만) 인식
 #  2) 타겟의 위치/자세를 "토픽" + "TF"로 내보냄
 #
@@ -64,14 +62,10 @@ class ArucoSubscriberNode(Node):
     def __init__(self):
         super().__init__("aruco_subscriber_node")
 
-        # --------------------------------------------------------
         # [ROS 시간 관련]
         # use_sim_time:
         # - Gazebo 같은 시뮬레이션에서는 "시뮬레이터 시간"을 써야 TF가 안 꼬인다.
-        # - 실카메라/실로봇이면 False가 맞는 경우도 있다.
-        # 이 코드는 "기본 True"로만 선언해두고,
-        # 실제로는 launch에서 통일해주는 게 가장 안정적이다.
-        # --------------------------------------------------------
+
         self.declare_parameter("use_sim_time", True)
 
         # (디버깅/안정) declare만 하면 실제 적용이 안 될 수 있어서 set_parameter로 반영
@@ -99,6 +93,19 @@ class ArucoSubscriberNode(Node):
         self.declare_parameter("target_id", 23)
         self.declare_parameter("min_z", 0.02)
         self.declare_parameter("max_z", 2.0)
+
+        # [추가 파라미터]
+        # keepalive_hz:
+        # - 검출이 순간 끊겨도 TF가 "오래된 TF"로 떨어지지 않게
+        #   마지막 정상 pose를 일정 시간 동안 계속 fresh stamp로 재발행한다.
+        #
+        # keepalive_sec:
+        # - 마지막 정상 검출 이후 몇 초 동안 keepalive 할지(hold-last 역할)
+        
+        self.declare_parameter("keepalive_hz", 30.0)
+        self.declare_parameter("keepalive_sec", 1.0)
+        self.keepalive_hz = float(self.get_parameter("keepalive_hz").value)
+        self.keepalive_sec = float(self.get_parameter("keepalive_sec").value)
 
         # 파라미터 값 읽어오기
         self.marker_size = float(self.get_parameter("marker_size").value)
@@ -198,12 +205,26 @@ class ArucoSubscriberNode(Node):
         # ROS 이미지 <-> OpenCV 변환 도구
         self.bridge = CvBridge()
 
+        # --------------------------------------------------------
+        # [keep-alive를 위한 마지막 정상 검출 저장소]
+        # - 마지막 정상 pose를 저장해두고,
+        #   검출이 잠깐 끊겨도 keepalive_sec 동안 TF를 계속 발행한다.
+        # --------------------------------------------------------
+        self.last_good_pose = None  # PoseStamped
+        self.last_good_time = self.get_clock().now()  # rclpy Time
+        self.last_visible = False
+
+        # keep-alive timer
+        period = 1.0 / max(1.0, self.keepalive_hz)
+        self.create_timer(period, self.keepalive_timer_cb)
+
         self.get_logger().info(
             f"✅ ArUco started | image={image_topic}, info={info_topic}, "
-            f"target_id={self.target_id}, frame={self.camera_frame}"
+            f"target_id={self.target_id}, frame={self.camera_frame}, "
+            f"keepalive_hz={self.keepalive_hz}, keepalive_sec={self.keepalive_sec}"
         )
 
-    # 카메라 내부 파라미터를 저장한다. 
+    # 카메라 내부 파라미터를 저장한다.
     # 한 번 제대로 받으면 계속 쓸 수 있으니 1회만 처리한다.
     def camera_info_callback(self, msg: CameraInfo):
         if self.camera_matrix is not None:
@@ -255,7 +276,8 @@ class ArucoSubscriberNode(Node):
 
         # stamp는 "이미지 stamp"가 아니라 "현재 시간(now)"를 사용
         # TF 시간이 꼬이면 MoveIt에서 extrapolation 문제 발생
-        now_msg = self.get_clock().now().to_msg()
+        now = self.get_clock().now()
+        now_msg = now.to_msg()
 
         target_found = False      # 타겟 찾았는지
         best_pose = None          # 타겟 pose (PoseStamped)
@@ -377,19 +399,40 @@ class ArucoSubscriberNode(Node):
             # PoseStamped 토픽 발행
             self.target_pose_pub.publish(best_pose)
 
-            # TF 발행: camera_frame -> aruco_marker_<target_id>
-            # (다른 노드가 lookupTransform으로 사용할 수 있음)
-            t = TransformStamped()
-            t.header.stamp = now_msg
-            t.header.frame_id = self.camera_frame
-            t.child_frame_id = f"aruco_marker_{self.target_id}"
+            # 마지막 정상 검출 업데이트(keep-alive용)
+            self.last_good_pose = best_pose
+            self.last_good_time = now
+            self.last_visible = True
+        else:
+            self.last_visible = False
 
-            t.transform.translation.x = best_pose.pose.position.x
-            t.transform.translation.y = best_pose.pose.position.y
-            t.transform.translation.z = best_pose.pose.position.z
-            t.transform.rotation = best_pose.pose.orientation
+    # keep-alive 타이머 콜백
+    # - 검출이 잠깐 끊겨도 TF가 오래된 것으로 판정되지 않게
+    #   마지막 정상 pose를 keepalive_sec 동안 계속 발행한다.
+    def keepalive_timer_cb(self):
+        if self.last_good_pose is None:
+            return
 
-            self.tf_broadcaster.sendTransform(t)
+        now = self.get_clock().now()
+        age = (now - self.last_good_time).nanoseconds * 1e-9
+        if (not np.isfinite(age)) or (age < 0.0) or (age > self.keepalive_sec):
+            return
+
+        # stamp는 항상 "현재 시간(now)"로 갱신해서 TF가 old로 떨어지지 않게 한다.
+        now_msg = now.to_msg()
+
+        # TF 발행: camera_frame -> aruco_marker_<target_id>
+        t = TransformStamped()
+        t.header.stamp = now_msg
+        t.header.frame_id = self.camera_frame
+        t.child_frame_id = f"aruco_marker_{self.target_id}"
+
+        t.transform.translation.x = self.last_good_pose.pose.position.x
+        t.transform.translation.y = self.last_good_pose.pose.position.y
+        t.transform.translation.z = self.last_good_pose.pose.position.z
+        t.transform.rotation = self.last_good_pose.pose.orientation
+
+        self.tf_broadcaster.sendTransform(t)
 
 
 def main():
