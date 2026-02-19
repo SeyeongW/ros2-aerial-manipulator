@@ -1,17 +1,36 @@
+// ============================================================
+// real_pick_simple.cpp
+// ============================================================
+// ✅ 목적
+//  - TF로 제공되는 aruco_marker_<ID> (마커 pose)를 base(link1) 기준으로 받아서
+//    pregrasp → cartesian approach → settle → gripper close(wait) → cartesian retreat → home
+//    흐름으로 “픽 동작”을 반복 수행하는 간단 버전.
+//
+// ✅ 특징
+//  - /aruco/markers 구독 없이, TF만 이용해서 타겟 마커(여기선 ID=23)만 추적
+//  - 마커 프레임의 +Z/-Z 중에서 "base를 더 향하는 방향"을 접근 방향으로 자동 선택
+//  - 접근 방향과 마커 축으로 EE(엔드이펙터) orientation을 자동 생성
+//  - 그리퍼는 action 결과를 기다리는 blocking 방식(타이밍 꼬임 방지)
+//
+// ⚠️ 현실 주의
+//  - EE 프레임에서 “전방”이 +Z라는 가정.
+//    만약 네 EE 전방이 -Z면 makeEeOriAuto()에서 z_tool 방향만 뒤집으면 된다.
+// ============================================================
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
-#include <control_msgs/action/gripper_command.hpp>
-#include <moveit/move_group_interface/move_group_interface.h>
+#include <control_msgs/action/gripper_command.hpp>            // GripperCommand 액션 타입
+#include <moveit/move_group_interface/move_group_interface.h> // MoveIt MoveGroupInterface
 
-#include <tf2_ros/transform_listener.h>
-#include <tf2_ros/buffer.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_ros/transform_listener.h>   // TF listener
+#include <tf2_ros/buffer.h>               // TF buffer
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp> // tf2 <-> geometry 변환
 
-#include <geometry_msgs/msg/transform_stamped.hpp>
-#include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp> // TF 결과 구조체
+#include <geometry_msgs/msg/pose.hpp>              // Pose 타입
 
-#include <moveit_msgs/msg/robot_trajectory.hpp>
+#include <moveit_msgs/msg/robot_trajectory.hpp>    // cartesian path 결과 trajectory
 
 #include <chrono>
 #include <thread>
@@ -21,226 +40,412 @@
 
 using namespace std::chrono_literals;
 
+// GripperCommand 타입 별칭
 using GripperCommand = control_msgs::action::GripperCommand;
 
-// ---------- tiny utils ----------
-static double clamp(double v, double lo, double hi) { return std::max(lo, std::min(hi, v)); }
+// ------------------------------------------------------------
+// tiny utils: 자주 쓰는 유틸 함수들
+// ------------------------------------------------------------
 
+// 값 v를 [lo, hi] 범위로 제한(clamp)
+static double clamp(double v, double lo, double hi) {
+  return std::max(lo, std::min(hi, v));
+}
+
+// ------------------------------------------------------------
+// quatFromAxes:
+//  - base 기준으로 주어진 x,y,z 축(단위벡터, 서로 직교)을 이용해
+//    회전행렬을 만들고 quaternion으로 변환하는 함수
+//  - 즉, "이 축들로 툴 프레임을 만들고 싶다"에서 사용됨
+// ------------------------------------------------------------
 static tf2::Quaternion quatFromAxes(const tf2::Vector3& x,
                                    const tf2::Vector3& y,
                                    const tf2::Vector3& z)
 {
+  // 3x3 회전행렬 구성
+  // 여기서는 [x y z]를 열벡터로 쓰는 형태로 넣음
   tf2::Matrix3x3 R(
     x.x(), y.x(), z.x(),
     x.y(), y.y(), z.y(),
     x.z(), y.z(), z.z()
   );
-  tf2::Quaternion q; R.getRotation(q);
+
+  // 행렬 -> quaternion
+  tf2::Quaternion q;
+  R.getRotation(q);
+
+  // 정규화해서 반환
   return q.normalized();
 }
 
-// base<-marker(q_m)와 approach_dir로 EE orientation을 자동 생성
-static tf2::Quaternion makeEeOriAuto(const tf2::Quaternion& q_m, const tf2::Vector3& approach_dir)
+// ------------------------------------------------------------
+// makeEeOriAuto:
+//  - base<-marker 회전(q_m)과 접근방향(approach_dir)을 받아서
+//    EE의 orientation을 “자동”으로 만든다.
+//
+// 생성 규칙(가정):
+//  - EE의 +Z가 approach_dir(접근방향)을 바라보도록 설정
+//  - EE의 +X는 marker의 X축과 최대한 align되도록(롤 흔들림 방지)
+//    단, marker X축이 접근방향과 거의 평행이면 marker Y축을 대신 사용
+//
+// 왜 필요?
+//  - 원래는 "RPY 튜닝"을 사람이 해야 하는데,
+//    이 함수로 "마커 축 기반 자동 정렬"을 해서 튜닝을 줄인다.
+// ------------------------------------------------------------
+static tf2::Quaternion makeEeOriAuto(const tf2::Quaternion& q_m,
+                                     const tf2::Vector3& approach_dir)
 {
+  // marker 프레임의 x축, y축을 base 기준으로 회전시킨 단위 벡터
+  // (marker의 orientation을 이용해 marker 축 방향을 알아내는 작업)
   const tf2::Vector3 mx = tf2::quatRotate(q_m, tf2::Vector3(1,0,0)).normalized();
   const tf2::Vector3 my = tf2::quatRotate(q_m, tf2::Vector3(0,1,0)).normalized();
 
-  tf2::Vector3 z_tool = approach_dir.normalized(); // EE +Z가 접근방향
+  // EE의 +Z 축을 접근 방향으로 둔다(전방 = +Z 가정)
+  tf2::Vector3 z_tool = approach_dir.normalized();
 
-  // x_tool = marker x 를 z_tool에 직교화(롤 고정)
+  // EE의 +X는 marker X축을 z_tool에 직교화해서 사용
+  // (x_tool = mx - (mx·z) z)
   tf2::Vector3 x_tool = mx - z_tool * mx.dot(z_tool);
-  if (x_tool.length() < 1e-6) x_tool = my - z_tool * my.dot(z_tool);
-  if (x_tool.length() < 1e-6) x_tool = tf2::Vector3(1,0,0) - z_tool * tf2::Vector3(1,0,0).dot(z_tool);
+
+  // marker X가 접근축과 평행이면 직교화 결과가 거의 0이 됨 → marker Y로 대체
+  if (x_tool.length() < 1e-6)
+    x_tool = my - z_tool * my.dot(z_tool);
+
+  // 그래도 안 되면(최후) base X축을 이용해 직교화
+  if (x_tool.length() < 1e-6)
+    x_tool = tf2::Vector3(1,0,0) - z_tool * tf2::Vector3(1,0,0).dot(z_tool);
+
   x_tool.normalize();
 
+  // 오른손 좌표계 구성: y = z × x
   tf2::Vector3 y_tool = z_tool.cross(x_tool).normalized();
+
+  // 수치 오차 제거: x = y × z로 다시 정리
   x_tool = y_tool.cross(z_tool).normalized();
 
+  // 최종 축으로 quaternion 생성
   return quatFromAxes(x_tool, y_tool, z_tool);
 }
 
-// marker의 +Z 또는 -Z 중 base쪽을 더 향하는 축을 approach로 선택
-static tf2::Vector3 chooseApproachAuto(const tf2::Vector3& p_m, const tf2::Quaternion& q_m)
+// ------------------------------------------------------------
+// chooseApproachAuto:
+//  - marker 프레임의 +Z 또는 -Z 중에서,
+//    "base(원점) 쪽을 더 향하는 방향"을 접근방향으로 자동 선택한다.
+//
+// 입력:
+//  - p_m: base 기준 marker 위치(벡터)
+//  - q_m: base<-marker 회전
+//
+// 동작:
+//  1) marker에서 base로 향하는 방향 to_base ≈ -p_m
+//  2) marker의 +Z, -Z를 base 기준 벡터로 변환
+//  3) 둘 중 to_base와 내적(dot)이 큰 축을 접근 방향으로 선택
+//
+// 왜 필요?
+//  - ArUco 패키지/프레임 정의에 따라 marker +Z가 앞/뒤가 바뀌는 경우가 흔함.
+//  - 이 함수가 그걸 자동으로 흡수한다.
+// ------------------------------------------------------------
+static tf2::Vector3 chooseApproachAuto(const tf2::Vector3& p_m,
+                                       const tf2::Quaternion& q_m)
 {
+  // marker에서 base로 가는 방향(대략 -p_m)
   tf2::Vector3 to_base = (-p_m);
-  if (to_base.length() < 1e-6) to_base = tf2::Vector3(1,0,0);
+  if (to_base.length() < 1e-6) to_base = tf2::Vector3(1,0,0); // 0이면 임의축
   to_base.normalize();
 
+  // marker +Z / -Z를 base 기준으로 회전시킨 방향 벡터
   tf2::Vector3 z_plus  = tf2::quatRotate(q_m, tf2::Vector3(0,0, 1)).normalized();
   tf2::Vector3 z_minus = tf2::quatRotate(q_m, tf2::Vector3(0,0,-1)).normalized();
 
+  // base 쪽을 더 잘 향하는 축 선택 (내적이 큰 쪽)
   return (z_plus.dot(to_base) >= z_minus.dot(to_base)) ? z_plus : z_minus;
 }
 
-// gripper blocking (최소 구현)
+// ------------------------------------------------------------
+// gripperBlocking:
+//  - gripper action goal을 보내고 결과를 timeout까지 기다리는 최소 구현
+//  - "닫기 명령을 던지고 바로 다음 상태로 넘어가서 타이밍이 꼬이는 문제" 방지
+//
+// 주의:
+//  - 이 구현은 spin_until_future_complete를 사용하므로
+//    node가 콜백을 처리할 수 있어야 한다(아래에서 executor thread를 돌림).
+// ------------------------------------------------------------
 static bool gripperBlocking(const rclcpp::Node::SharedPtr& node,
                             const rclcpp_action::Client<GripperCommand>::SharedPtr& client,
                             double pos, double effort,
                             std::chrono::milliseconds timeout = 3000ms)
 {
+  // action server 대기
   if (!client->wait_for_action_server(2s)) return false;
 
+  // goal 구성
   GripperCommand::Goal goal;
   goal.command.position = pos;
   goal.command.max_effort = effort;
 
+  // goal 전송
   auto gh_fut = client->async_send_goal(goal);
-  if (rclcpp::spin_until_future_complete(node, gh_fut, 1500ms) != rclcpp::FutureReturnCode::SUCCESS)
+
+  // goal handle 수신 대기(최대 1.5s)
+  if (rclcpp::spin_until_future_complete(node, gh_fut, 1500ms)
+      != rclcpp::FutureReturnCode::SUCCESS)
     return false;
 
   auto gh = gh_fut.get();
-  if (!gh) return false;
+  if (!gh) return false; // rejected
 
+  // 결과 대기
   auto res_fut = client->async_get_result(gh);
-  if (rclcpp::spin_until_future_complete(node, res_fut, timeout) != rclcpp::FutureReturnCode::SUCCESS)
+  if (rclcpp::spin_until_future_complete(node, res_fut, timeout)
+      != rclcpp::FutureReturnCode::SUCCESS)
     return false;
 
+  // 성공 여부 반환
   auto wrapped = res_fut.get();
   return wrapped.code == rclcpp_action::ResultCode::SUCCEEDED;
 }
 
 int main(int argc, char** argv) {
+  // ----------------------------------------------------------
+  // ROS 초기화 + 노드 생성
+  // ----------------------------------------------------------
   rclcpp::init(argc, argv);
   auto node = std::make_shared<rclcpp::Node>("real_pick_simple");
 
-  // executor thread (tf/action 콜백)
+  // ----------------------------------------------------------
+  // executor thread:
+  //  - tf listener 콜백, action 관련 콜백 처리를 위해 별도 spin 실행
+  //  - main은 아래 while 루프로 픽 시퀀스를 진행
+  // ----------------------------------------------------------
   auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   exec->add_node(node);
   std::thread spin_thr([&](){ exec->spin(); });
 
-  // TF
+  // ----------------------------------------------------------
+  // TF 구성
+  //  - tf_buffer: TF 데이터를 저장/조회
+  //  - tf_listener: /tf, /tf_static를 구독해서 buffer를 채움
+  // ----------------------------------------------------------
   auto tf_buffer   = std::make_unique<tf2_ros::Buffer>(node->get_clock());
   auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
 
-  // MoveIt
+  // ----------------------------------------------------------
+  // MoveIt 구성
+  //  - "arm" planning group 사용
+  //  - 속도/가속 스케일을 낮춰 동작을 부드럽게 함
+  // ----------------------------------------------------------
   moveit::planning_interface::MoveGroupInterface arm(node, "arm");
   arm.setPlanningTime(4.0);
-  arm.setMaxVelocityScalingFactor(0.15);
-  arm.setMaxAccelerationScalingFactor(0.15);
+  arm.setMaxVelocityScalingFactor(0.15);     // 느리게(부드럽게)
+  arm.setMaxAccelerationScalingFactor(0.15); // 느리게(부드럽게)
   arm.setGoalPositionTolerance(0.01);
   arm.setGoalOrientationTolerance(0.15);
 
-  // Gripper
-  auto gripper = rclcpp_action::create_client<GripperCommand>(node, "/gripper_controller/gripper_cmd");
+  // ----------------------------------------------------------
+  // Gripper 액션 클라이언트
+  // ----------------------------------------------------------
+  auto gripper = rclcpp_action::create_client<GripperCommand>(
+      node, "/gripper_controller/gripper_cmd");
 
-  // --------- params ---------
-  const std::string base_frame = "link1";
-  const int TARGET_ID = 23;
-  const std::string target_frame = "aruco_marker_" + std::to_string(TARGET_ID);
+  // ----------------------------------------------------------
+  // 파라미터(환경에 맞게 수정 가능)
+  // ----------------------------------------------------------
+  const std::string base_frame = "link1"; // planning base frame
+  const int TARGET_ID = 23;              // 타겟 마커 ID를 고정(단순화)
+  const std::string target_frame = "aruco_marker_" + std::to_string(TARGET_ID); // TF 프레임명
 
-  const double max_tf_age_sec = 0.6;
+  const double max_tf_age_sec = 0.6; // TF가 너무 오래됐으면 무시
 
+  // gripper open/close
   const double GRIP_OPEN = 0.019;
   const double GRIP_CLOSE = -0.001;
   const double GRIP_EFFORT = 8.0;
 
-  const double grasp_offset = 0.025;
-  const double pre_dist = 0.12;
-  const double ret_dist = 0.12;
+  // grasp 기하 파라미터
+  const double grasp_offset = 0.025; // marker에서 approach 방향으로 그랩 오프셋
+  const double pre_dist = 0.12;      // pregrasp 거리(그랩에서 뒤로)
+  const double ret_dist = 0.12;      // retreat 거리(그랩에서 앞으로)
 
-  const double cart_step = 0.005;
+  // cartesian path 관련
+  const double cart_step = 0.005; // 작을수록 촘촘(부드럽지만 느려짐)
   const double cart_jump = 0.0;
-  const double min_frac = 0.90;
+  const double min_frac = 0.90;   // cartesian path 성공률 threshold
 
+  // grasp 직전 정지
   const auto settle_time = 300ms;
 
-  // workspace safety
+  // 안전 작업공간 제한
   const double x_min=-0.35, x_max=0.35;
   const double y_min=-0.35, y_max=0.35;
   const double z_min= 0.05, z_max=0.40;
 
+  // ----------------------------------------------------------
+  // getFreshTF:
+  //  - base_frame <- target_frame TF를 가져오되
+  //  - timestamp가 오래됐으면 false를 리턴하여 무시
+  // ----------------------------------------------------------
   auto getFreshTF = [&](geometry_msgs::msg::TransformStamped& out)->bool {
     try {
+      // TF 가능 여부 확인
       if (!tf_buffer->canTransform(base_frame, target_frame, tf2::TimePointZero, 80ms))
         return false;
+
+      // 가장 최근 TF 조회
       auto t = tf_buffer->lookupTransform(base_frame, target_frame, tf2::TimePointZero);
 
+      // timestamp 신선도 체크
       rclcpp::Time now = node->get_clock()->now();
       rclcpp::Time st  = rclcpp::Time(t.header.stamp);
       if ((now - st).seconds() > max_tf_age_sec) return false;
 
       out = t;
       return true;
-    } catch (...) { return false; }
+    } catch (...) {
+      return false;
+    }
   };
 
-  // ---------- main loop ----------
+  // ----------------------------------------------------------
+  // main loop:
+  //  - 이 루프 한 번이 "픽 사이클 1회"에 해당
+  //  - 성공/실패와 상관없이 계속 반복하면서 집기를 시도함
+  // ----------------------------------------------------------
   rclcpp::Rate rate(10);
 
   while (rclcpp::ok()) {
-    // 0) 홈 + 오픈
-    arm.setNamedTarget("home");
-    arm.move();
-    (void)gripperBlocking(node, gripper, GRIP_OPEN, GRIP_EFFORT, 2500ms);
-    rclcpp::sleep_for(200ms);
+    // ========================================================
+    // 0) home + gripper open
+    // ========================================================
 
-    // 1) marker 기다림
+    arm.setNamedTarget("home"); // MoveIt SRDF에 정의된 named target
+    arm.move();                 // plan+execute
+
+    (void)gripperBlocking(node, gripper, GRIP_OPEN, GRIP_EFFORT, 2500ms); // 오픈
+    rclcpp::sleep_for(200ms); // 약간 안정화
+
+    // ========================================================
+    // 1) marker TF가 들어올 때까지 대기
+    // ========================================================
     geometry_msgs::msg::TransformStamped t_bm;
+
     while (rclcpp::ok() && !getFreshTF(t_bm)) {
-      RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 1500, "waiting TF: %s", target_frame.c_str());
+      // TF가 아직 없거나 stale이면 대기
+      RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 1500,
+                           "waiting TF: %s", target_frame.c_str());
       rate.sleep();
     }
     if (!rclcpp::ok()) break;
 
-    // 2) pose 계산
+    // ========================================================
+    // 2) TF로부터 base 기준 marker pose 추출
+    // ========================================================
     tf2::Vector3 p_m(t_bm.transform.translation.x,
                      t_bm.transform.translation.y,
                      t_bm.transform.translation.z);
+
     tf2::Quaternion q_m;
     tf2::fromMsg(t_bm.transform.rotation, q_m);
     q_m.normalize();
 
+    // ========================================================
+    // 3) 접근 방향 / EE orientation 자동 계산
+    // ========================================================
+
+    // 접근 방향: marker +Z/-Z 중 base를 더 향하는 방향으로 자동 선택
     tf2::Vector3 approach = chooseApproachAuto(p_m, q_m).normalized();
+
+    // EE orientation: (툴 +Z=approach, +X=marker X에 최대한 align)
     tf2::Quaternion q_ee = makeEeOriAuto(q_m, approach);
 
+    // ========================================================
+    // 4) pregrasp / grasp / retreat 위치 계산
+    // ========================================================
+
+    // grasp point = marker + approach * grasp_offset
     tf2::Vector3 p_grasp = p_m + approach * grasp_offset;
+
+    // pregrasp = grasp - approach * pre_dist (뒤로 물러난 지점)
     tf2::Vector3 p_pre   = p_grasp - approach * pre_dist;
+
+    // retreat = grasp + approach * ret_dist (잡은 뒤 빠질 지점)
     tf2::Vector3 p_ret   = p_grasp + approach * ret_dist;
 
+    // 안전 영역으로 clamp
     auto clampVec = [&](tf2::Vector3& p){
       p.setX(clamp(p.x(), x_min, x_max));
       p.setY(clamp(p.y(), y_min, y_max));
       p.setZ(clamp(p.z(), z_min, z_max));
     };
-    clampVec(p_pre); clampVec(p_grasp); clampVec(p_ret);
+    clampVec(p_pre);
+    clampVec(p_grasp);
+    clampVec(p_ret);
 
+    // geometry_msgs::Pose로 변환
     geometry_msgs::msg::Pose pre, grasp, ret;
-    pre.position.x = p_pre.x(); pre.position.y = p_pre.y(); pre.position.z = p_pre.z();
+
+    pre.position.x = p_pre.x();   pre.position.y = p_pre.y();   pre.position.z = p_pre.z();
     grasp.position.x = p_grasp.x(); grasp.position.y = p_grasp.y(); grasp.position.z = p_grasp.z();
-    ret.position.x = p_ret.x(); ret.position.y = p_ret.y(); ret.position.z = p_ret.z();
+    ret.position.x = p_ret.x();   ret.position.y = p_ret.y();   ret.position.z = p_ret.z();
+
+    // orientation은 3개 pose 모두 동일하게 사용(접근 중 자세 유지)
     pre.orientation = tf2::toMsg(q_ee);
     grasp.orientation = tf2::toMsg(q_ee);
     ret.orientation = tf2::toMsg(q_ee);
 
-    // 3) pregrasp 이동
-    arm.setStartStateToCurrentState();
-    arm.setPoseTarget(pre);
-    if (arm.move() != moveit::core::MoveItErrorCode::SUCCESS) continue;
+    // ========================================================
+    // 5) pregrasp로 이동 (plan+execute)
+    // ========================================================
+    arm.setStartStateToCurrentState(); // 현재 joint state를 시작 상태로
+    arm.setPoseTarget(pre);            // 목표 pose
+    if (arm.move() != moveit::core::MoveItErrorCode::SUCCESS)
+      continue;                        // 실패하면 사이클 재시작
 
-    // 4) cart approach
+    // ========================================================
+    // 6) cartesian approach로 grasp pose 접근
+    // ========================================================
     {
       std::vector<geometry_msgs::msg::Pose> waypoints{grasp};
+
       moveit_msgs::msg::RobotTrajectory traj;
       arm.setStartStateToCurrentState();
+
+      // cartesian path 계산
       double frac = arm.computeCartesianPath(waypoints, cart_step, cart_jump, traj);
+
+      // frac이 낮으면 경로가 불완전 → 실패로 보고 다음 사이클
       if (frac < min_frac) continue;
+
+      // traj 실행
       moveit::planning_interface::MoveGroupInterface::Plan plan;
       plan.trajectory_ = traj;
-      if (arm.execute(plan) != moveit::core::MoveItErrorCode::SUCCESS) continue;
+      if (arm.execute(plan) != moveit::core::MoveItErrorCode::SUCCESS)
+        continue;
     }
 
-    // 5) settle
+    // ========================================================
+    // 7) settle (잔진동/오차 안정화)
+    // ========================================================
     rclcpp::sleep_for(settle_time);
 
-    // 6) gripper close wait
-    if (!gripperBlocking(node, gripper, GRIP_CLOSE, GRIP_EFFORT, 3500ms)) continue;
+    // ========================================================
+    // 8) gripper close (결과 기다림)
+    // ========================================================
+    if (!gripperBlocking(node, gripper, GRIP_CLOSE, GRIP_EFFORT, 3500ms))
+      continue;
 
-    // 7) retreat cart
+    // ========================================================
+    // 9) cartesian retreat (부드럽게 빠지기)
+    // ========================================================
     {
       std::vector<geometry_msgs::msg::Pose> waypoints{ret};
+
       moveit_msgs::msg::RobotTrajectory traj;
       arm.setStartStateToCurrentState();
+
       double frac = arm.computeCartesianPath(waypoints, cart_step, cart_jump, traj);
+
+      // retreat는 실패해도 home으로 보내는 편이 안전한 경우가 많아서
+      // frac 낮으면 그냥 skip하고 home으로 감
       if (frac >= min_frac) {
         moveit::planning_interface::MoveGroupInterface::Plan plan;
         plan.trajectory_ = traj;
@@ -248,14 +453,19 @@ int main(int argc, char** argv) {
       }
     }
 
-    // 8) home
+    // ========================================================
+    // 10) home 복귀
+    // ========================================================
     arm.setNamedTarget("home");
     arm.move();
 
-    // 반복 실행: 계속 집기
+    // 다음 픽 사이클까지 약간 쉬기
     rclcpp::sleep_for(500ms);
   }
 
+  // ----------------------------------------------------------
+  // 종료 처리
+  // ----------------------------------------------------------
   rclcpp::shutdown();
   spin_thr.join();
   return 0;
