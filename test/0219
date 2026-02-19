@@ -1,0 +1,262 @@
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
+
+#include <control_msgs/action/gripper_command.hpp>
+#include <moveit/move_group_interface/move_group_interface.h>
+
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+
+#include <moveit_msgs/msg/robot_trajectory.hpp>
+
+#include <chrono>
+#include <thread>
+#include <vector>
+#include <cmath>
+#include <string>
+
+using namespace std::chrono_literals;
+
+using GripperCommand = control_msgs::action::GripperCommand;
+
+// ---------- tiny utils ----------
+static double clamp(double v, double lo, double hi) { return std::max(lo, std::min(hi, v)); }
+
+static tf2::Quaternion quatFromAxes(const tf2::Vector3& x,
+                                   const tf2::Vector3& y,
+                                   const tf2::Vector3& z)
+{
+  tf2::Matrix3x3 R(
+    x.x(), y.x(), z.x(),
+    x.y(), y.y(), z.y(),
+    x.z(), y.z(), z.z()
+  );
+  tf2::Quaternion q; R.getRotation(q);
+  return q.normalized();
+}
+
+// base<-marker(q_m)와 approach_dir로 EE orientation을 자동 생성
+static tf2::Quaternion makeEeOriAuto(const tf2::Quaternion& q_m, const tf2::Vector3& approach_dir)
+{
+  const tf2::Vector3 mx = tf2::quatRotate(q_m, tf2::Vector3(1,0,0)).normalized();
+  const tf2::Vector3 my = tf2::quatRotate(q_m, tf2::Vector3(0,1,0)).normalized();
+
+  tf2::Vector3 z_tool = approach_dir.normalized(); // EE +Z가 접근방향
+
+  // x_tool = marker x 를 z_tool에 직교화(롤 고정)
+  tf2::Vector3 x_tool = mx - z_tool * mx.dot(z_tool);
+  if (x_tool.length() < 1e-6) x_tool = my - z_tool * my.dot(z_tool);
+  if (x_tool.length() < 1e-6) x_tool = tf2::Vector3(1,0,0) - z_tool * tf2::Vector3(1,0,0).dot(z_tool);
+  x_tool.normalize();
+
+  tf2::Vector3 y_tool = z_tool.cross(x_tool).normalized();
+  x_tool = y_tool.cross(z_tool).normalized();
+
+  return quatFromAxes(x_tool, y_tool, z_tool);
+}
+
+// marker의 +Z 또는 -Z 중 base쪽을 더 향하는 축을 approach로 선택
+static tf2::Vector3 chooseApproachAuto(const tf2::Vector3& p_m, const tf2::Quaternion& q_m)
+{
+  tf2::Vector3 to_base = (-p_m);
+  if (to_base.length() < 1e-6) to_base = tf2::Vector3(1,0,0);
+  to_base.normalize();
+
+  tf2::Vector3 z_plus  = tf2::quatRotate(q_m, tf2::Vector3(0,0, 1)).normalized();
+  tf2::Vector3 z_minus = tf2::quatRotate(q_m, tf2::Vector3(0,0,-1)).normalized();
+
+  return (z_plus.dot(to_base) >= z_minus.dot(to_base)) ? z_plus : z_minus;
+}
+
+// gripper blocking (최소 구현)
+static bool gripperBlocking(const rclcpp::Node::SharedPtr& node,
+                            const rclcpp_action::Client<GripperCommand>::SharedPtr& client,
+                            double pos, double effort,
+                            std::chrono::milliseconds timeout = 3000ms)
+{
+  if (!client->wait_for_action_server(2s)) return false;
+
+  GripperCommand::Goal goal;
+  goal.command.position = pos;
+  goal.command.max_effort = effort;
+
+  auto gh_fut = client->async_send_goal(goal);
+  if (rclcpp::spin_until_future_complete(node, gh_fut, 1500ms) != rclcpp::FutureReturnCode::SUCCESS)
+    return false;
+
+  auto gh = gh_fut.get();
+  if (!gh) return false;
+
+  auto res_fut = client->async_get_result(gh);
+  if (rclcpp::spin_until_future_complete(node, res_fut, timeout) != rclcpp::FutureReturnCode::SUCCESS)
+    return false;
+
+  auto wrapped = res_fut.get();
+  return wrapped.code == rclcpp_action::ResultCode::SUCCEEDED;
+}
+
+int main(int argc, char** argv) {
+  rclcpp::init(argc, argv);
+  auto node = std::make_shared<rclcpp::Node>("real_pick_simple");
+
+  // executor thread (tf/action 콜백)
+  auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
+  exec->add_node(node);
+  std::thread spin_thr([&](){ exec->spin(); });
+
+  // TF
+  auto tf_buffer   = std::make_unique<tf2_ros::Buffer>(node->get_clock());
+  auto tf_listener = std::make_shared<tf2_ros::TransformListener>(*tf_buffer);
+
+  // MoveIt
+  moveit::planning_interface::MoveGroupInterface arm(node, "arm");
+  arm.setPlanningTime(4.0);
+  arm.setMaxVelocityScalingFactor(0.15);
+  arm.setMaxAccelerationScalingFactor(0.15);
+  arm.setGoalPositionTolerance(0.01);
+  arm.setGoalOrientationTolerance(0.15);
+
+  // Gripper
+  auto gripper = rclcpp_action::create_client<GripperCommand>(node, "/gripper_controller/gripper_cmd");
+
+  // --------- params ---------
+  const std::string base_frame = "link1";
+  const int TARGET_ID = 23;
+  const std::string target_frame = "aruco_marker_" + std::to_string(TARGET_ID);
+
+  const double max_tf_age_sec = 0.6;
+
+  const double GRIP_OPEN = 0.019;
+  const double GRIP_CLOSE = -0.001;
+  const double GRIP_EFFORT = 8.0;
+
+  const double grasp_offset = 0.025;
+  const double pre_dist = 0.12;
+  const double ret_dist = 0.12;
+
+  const double cart_step = 0.005;
+  const double cart_jump = 0.0;
+  const double min_frac = 0.90;
+
+  const auto settle_time = 300ms;
+
+  // workspace safety
+  const double x_min=-0.35, x_max=0.35;
+  const double y_min=-0.35, y_max=0.35;
+  const double z_min= 0.05, z_max=0.40;
+
+  auto getFreshTF = [&](geometry_msgs::msg::TransformStamped& out)->bool {
+    try {
+      if (!tf_buffer->canTransform(base_frame, target_frame, tf2::TimePointZero, 80ms))
+        return false;
+      auto t = tf_buffer->lookupTransform(base_frame, target_frame, tf2::TimePointZero);
+
+      rclcpp::Time now = node->get_clock()->now();
+      rclcpp::Time st  = rclcpp::Time(t.header.stamp);
+      if ((now - st).seconds() > max_tf_age_sec) return false;
+
+      out = t;
+      return true;
+    } catch (...) { return false; }
+  };
+
+  // ---------- main loop ----------
+  rclcpp::Rate rate(10);
+
+  while (rclcpp::ok()) {
+    // 0) 홈 + 오픈
+    arm.setNamedTarget("home");
+    arm.move();
+    (void)gripperBlocking(node, gripper, GRIP_OPEN, GRIP_EFFORT, 2500ms);
+    rclcpp::sleep_for(200ms);
+
+    // 1) marker 기다림
+    geometry_msgs::msg::TransformStamped t_bm;
+    while (rclcpp::ok() && !getFreshTF(t_bm)) {
+      RCLCPP_INFO_THROTTLE(node->get_logger(), *node->get_clock(), 1500, "waiting TF: %s", target_frame.c_str());
+      rate.sleep();
+    }
+    if (!rclcpp::ok()) break;
+
+    // 2) pose 계산
+    tf2::Vector3 p_m(t_bm.transform.translation.x,
+                     t_bm.transform.translation.y,
+                     t_bm.transform.translation.z);
+    tf2::Quaternion q_m;
+    tf2::fromMsg(t_bm.transform.rotation, q_m);
+    q_m.normalize();
+
+    tf2::Vector3 approach = chooseApproachAuto(p_m, q_m).normalized();
+    tf2::Quaternion q_ee = makeEeOriAuto(q_m, approach);
+
+    tf2::Vector3 p_grasp = p_m + approach * grasp_offset;
+    tf2::Vector3 p_pre   = p_grasp - approach * pre_dist;
+    tf2::Vector3 p_ret   = p_grasp + approach * ret_dist;
+
+    auto clampVec = [&](tf2::Vector3& p){
+      p.setX(clamp(p.x(), x_min, x_max));
+      p.setY(clamp(p.y(), y_min, y_max));
+      p.setZ(clamp(p.z(), z_min, z_max));
+    };
+    clampVec(p_pre); clampVec(p_grasp); clampVec(p_ret);
+
+    geometry_msgs::msg::Pose pre, grasp, ret;
+    pre.position.x = p_pre.x(); pre.position.y = p_pre.y(); pre.position.z = p_pre.z();
+    grasp.position.x = p_grasp.x(); grasp.position.y = p_grasp.y(); grasp.position.z = p_grasp.z();
+    ret.position.x = p_ret.x(); ret.position.y = p_ret.y(); ret.position.z = p_ret.z();
+    pre.orientation = tf2::toMsg(q_ee);
+    grasp.orientation = tf2::toMsg(q_ee);
+    ret.orientation = tf2::toMsg(q_ee);
+
+    // 3) pregrasp 이동
+    arm.setStartStateToCurrentState();
+    arm.setPoseTarget(pre);
+    if (arm.move() != moveit::core::MoveItErrorCode::SUCCESS) continue;
+
+    // 4) cart approach
+    {
+      std::vector<geometry_msgs::msg::Pose> waypoints{grasp};
+      moveit_msgs::msg::RobotTrajectory traj;
+      arm.setStartStateToCurrentState();
+      double frac = arm.computeCartesianPath(waypoints, cart_step, cart_jump, traj);
+      if (frac < min_frac) continue;
+      moveit::planning_interface::MoveGroupInterface::Plan plan;
+      plan.trajectory_ = traj;
+      if (arm.execute(plan) != moveit::core::MoveItErrorCode::SUCCESS) continue;
+    }
+
+    // 5) settle
+    rclcpp::sleep_for(settle_time);
+
+    // 6) gripper close wait
+    if (!gripperBlocking(node, gripper, GRIP_CLOSE, GRIP_EFFORT, 3500ms)) continue;
+
+    // 7) retreat cart
+    {
+      std::vector<geometry_msgs::msg::Pose> waypoints{ret};
+      moveit_msgs::msg::RobotTrajectory traj;
+      arm.setStartStateToCurrentState();
+      double frac = arm.computeCartesianPath(waypoints, cart_step, cart_jump, traj);
+      if (frac >= min_frac) {
+        moveit::planning_interface::MoveGroupInterface::Plan plan;
+        plan.trajectory_ = traj;
+        (void)arm.execute(plan);
+      }
+    }
+
+    // 8) home
+    arm.setNamedTarget("home");
+    arm.move();
+
+    // 반복 실행: 계속 집기
+    rclcpp::sleep_for(500ms);
+  }
+
+  rclcpp::shutdown();
+  spin_thr.join();
+  return 0;
+}
